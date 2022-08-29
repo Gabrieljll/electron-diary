@@ -1,0 +1,36 @@
+{
+  "name": "electron-diary",
+  "version": "1.0.0",
+  "description": "Agenda Dinámica",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder--win-x64",
+    "pack": "build --dir"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@electron/remote": "^2.0.8",
+    "builder-util-runtime": "^9.1.0",
+    "electron-reload": "^2.0.0-alpha.1",
+    "promise-mysql": "^5.2.0",
+    "sweetalert2": "^11.4.29"
+  },
+  "build": {
+    "appId": "com.agenda.dinamica",
+    "productName": "Agenda Dinamica",
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "icon": "build/phonebook.png"
+    }
+  },
+  "devDependencies": {
+    "electron": "^20.0.2",
+    "electron-builder": "^23.3.3"
+  }
+}

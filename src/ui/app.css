@@ -1,0 +1,187 @@
+@font-face {
+    font-family: "orange";
+    src: url("./fonts/Lora-Italic-VariableFont_wght.ttf");
+  }
+
+  html{    
+    overflow: auto;
+    
+}
+
+.btn{
+    font-family: 'orange' !important;
+}
+
+body {
+    margin: 0;     
+    overflow: auto;
+    padding: 0;        
+    background: rgb(232,156,225);
+    background: linear-gradient(90deg, rgba(232,156,225,1) 25%, rgba(208,157,236,1) 50%, rgba(159,193,228,1) 75%);
+    background-size: 100%;  
+    height: 100vh;  
+    width: 100%;
+}
+body::after{
+    opacity: 0.5;
+}
+#fichas {
+    height: 100vh;
+    margin: auto;
+    width: 100%;
+    justify-content: space-around;
+    display: grid;
+    grid-template-columns: repeat(3, 500px);
+}
+
+.botonesFiltro{
+    background-color: #a153cd !important;
+    
+    border:1px solid lightgrey;    
+}
+.divBotonLimpiarFiltro{
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.botonLimpiarFiltro{
+    background: rgb(186,139,198);
+    background: linear-gradient(90deg, rgb(180 115 197) 25%, rgb(209 104 180) 50%, rgba(180,115,197,1) 75%);    
+}
+#divFechasFichas{
+        position: relative;
+        display: flex;
+        z-index: 10;
+        padding-bottom: 15px; 
+        justify-content: center;       
+}
+
+#divFechasFichas div{
+    margin: 1px;
+    border-style: none;
+}
+
+.modalEditar {
+    opacity: 1;
+    z-index: 10;
+    /* display: block; */    
+    width: 100%;
+    height: 100%;
+    top: 0;
+    /* margin: auto; */
+}
+
+.botonCerrarModal{
+    width: max-content;
+    margin-left: 80%;
+}
+
+.swal2-popup, .swal2-modal, .swal2-show{
+        display: grid !important;        
+        width: 50%;
+        overflow: hidden;
+}
+.swal2-html-container{
+    overflow: hidden !important;
+    height:100%;
+}
+
+.tituloModal{
+    margin-top: 20px;
+}
+
+hr {
+    border-top: 2px solid;
+}
+
+.divBotonNuevoCliente{
+    display:flex;
+    justify-content: center;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.botonNuevoCliente{
+    width: 150px;
+    height: 100px;
+    background-color: rgb(90 196 199 / 80%) !important;
+    border: 1px solid lightseagreen;
+}
+.card{    
+    border: solid 1px black;
+    background-color: rgb(229, 135, 188) !important;
+    width: 500px;
+    height: 550px;
+}
+
+.divTextoCards{
+    margin-bottom:10px;
+}
+.card.bg-light{    
+    background: rgb(186,139,198);
+    background: linear-gradient(90deg, rgb(180 115 197) 25%, rgb(209 104 180) 50%, rgba(180,115,197,1) 75%);    
+}
+.divBotonCopiarTexto{
+    display: flex;
+    justify-content: end;
+    margin-top: 2px;
+}
+
+.botonCopiar{
+    width: 110px;
+    display: flex;
+}
+
+.iconoCopiar{
+    width: 20px;
+    margin: auto;
+    padding-right: 2px;
+}
+
+h5{
+    font-family: orange;
+    font-size: 0.85em;
+}
+.textoCards{
+    color:white !important;
+    font-weight: 100;
+    padding: 0 5px;
+    margin: 0;
+}
+.botonEditar {
+    background-color: rgb(90 196 199 / 80%) !important;
+    border: 1px solid lightseagreen;
+}
+
+.botonEliminar {
+    border: 1px solid #8c4fa7;
+    background-color: #a153cd !important;
+}
+
+.divBotonEditar, .divBotonBorrar{
+    display: flex;
+    justify-content: center;    
+}
+
+.divBotonEditar button, .divBotonBorrar button{
+    bottom: 5px;
+    width: 50%;
+}
+.form-control {
+    display: block;
+    width: 100%;
+    padding: .75rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    /* color: #fff; */
+    background-color: transparent;
+    background-clip: padding-box;
+    border: 1px solid rgb(0, 0, 0);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border-radius: .5rem;
+    transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+}
