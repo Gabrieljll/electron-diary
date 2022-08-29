@@ -255,14 +255,15 @@ function renderFichasCliente(fichas,fechas) {
                             ${String(new Date(ficha.fecha).getDate()).padStart(2, '0')+ '/' + String(new Date(ficha.fecha).getMonth() + 1).padStart(2, '0')}
                             </h5>
                             <br>
-                            <h5 id="fecha_${ficha.id}" class="textoCards"><strong>*- Código de cliente:* </strong>
+                            <h5 id="codigo_${ficha.id}" class="textoCards"><strong>*- Código de cliente:* </strong>
                                 ${ficha.numeroPedido}
                             </h5>
                             <br>
                             <h5 id="observaciones_${ficha.id}" class="textoCards"><strong>*- Observaciones:* </strong>
                                 ${ficha.observaciones}
                             </h5>
-                        </div> 
+                        </div>
+                        <br> 
                             <div class="divBotonEditar">
                                 <button onclick="editarFichaCliente(${ficha.id})" class="btn btn-primary botonEditar">EDITAR</button>
                             </div>
@@ -290,6 +291,7 @@ function copiarTextoCard(id){
     
     texto = cliente.innerText+"\n\n"+direccion.innerText+"\n\n"+celular.innerText+"\n\n"+producto.innerText+"\n\n"+precio.innerText+"\n\n"+fecha.innerText+"\n\n"+codigo.innerText+"\n\n"+observaciones.innerText;
     
+    debugger
     navigator.clipboard.writeText(texto)
         .then(() => {
             Swal.fire({
@@ -303,8 +305,6 @@ function copiarTextoCard(id){
         .catch(err => {
         console.log('Something went wrong', err);
         })
-
-
 }
 
 async function limpiarFiltro(){
