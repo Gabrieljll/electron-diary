@@ -175,7 +175,9 @@ function renderFichasCliente(fichas,fechas) {
                         <img class="iconoCopiar" src="./img/copiar-64.png">
                              COPIAR
                         </buttton>
-                    </div>                    
+                    </div>
+                    <h5 id="vendedora_${ficha.id}" class="textoCards textoCards_${ficha.id}"><strong>*Debora Sosa*</strong></h5>
+                    <br>
                     <div class="divTextoCards">
                         <h5 id="cliente_${ficha.id}" class="textoCards textoCards_${ficha.id}"><strong>*Cliente:*</strong>
                             ${ficha.nombreCliente}
@@ -231,7 +233,9 @@ function renderFichasCliente(fichas,fechas) {
                             <img class="iconoCopiar" src="./img/copiar-64.png">
                                 COPIAR
                             </buttton>
-                        </div>                        
+                        </div>
+                        <h5 id="vendedora_${ficha.id}" class="textoCards"><strong>*Debora Sosa*</strong></h5>
+                        <br>
                         <div class="divTextoCards">
                             <h5 id="cliente_${ficha.id}" class="textoCards"><strong>*Cliente:*</strong>${ficha.nombreCliente}</h5>
                             <br>
@@ -279,7 +283,8 @@ function renderFichasCliente(fichas,fechas) {
 
 
 function copiarTextoCard(id){
-    let texto = ''    
+    let texto = ''
+    let vendedora = document.getElementById('vendedora_'+id);
     let cliente = document.getElementById('cliente_'+id);
     let direccion = document.getElementById('direccion_'+id);
     let celular = document.getElementById('celular_'+id);
@@ -289,9 +294,9 @@ function copiarTextoCard(id){
     let codigo = document.getElementById('codigo_'+id);
     let observaciones = document.getElementById('observaciones_'+id);
     
-    texto = cliente.innerText+"\n\n"+direccion.innerText+"\n\n"+celular.innerText+"\n\n"+producto.innerText+"\n\n"+precio.innerText+"\n\n"+fecha.innerText+"\n\n"+codigo.innerText+"\n\n"+observaciones.innerText;
+    texto = vendedora.innerText+"\n\n"+cliente.innerText+"\n\n"+direccion.innerText+"\n\n"+celular.innerText+"\n\n"+producto.innerText+"\n\n"+precio.innerText+"\n\n"+fecha.innerText+"\n\n"+codigo.innerText+"\n\n"+observaciones.innerText;
     
-    
+
     navigator.clipboard.writeText(texto)
         .then(() => {
             Swal.fire({
