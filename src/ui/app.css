@@ -1,5 +1,5 @@
 @font-face {
-    font-family: "orange";
+    font-family: "lora";
     src: url("./fonts/Lora-Italic-VariableFont_wght.ttf");
   }
 
@@ -11,7 +11,7 @@
   }
 
   .btn{
-    font-family: 'orange' !important;
+    font-family: 'lora' !important;
   }
 
 body {
@@ -142,7 +142,7 @@ hr {
 }
 
 h5{
-    font-family: orange;
+    font-family: lora;
     font-size: 0.85em;
 }
 .textoCards{
