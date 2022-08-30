@@ -1,4 +1,4 @@
-const mysql = require('promise-mysql')
+const mysql = require('promise-mysql2')
 const dotenv = require("dotenv") 
 dotenv.config()
 const DB_HOST = process.env.DB_HOST

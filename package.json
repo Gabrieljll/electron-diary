@@ -16,7 +16,7 @@
     "builder-util-runtime": "^9.1.0",
     "dotenv": "^16.0.1",
     "electron-reload": "^2.0.0-alpha.1",
-    "promise-mysql": "^5.2.0",
+    "promise-mysql2": "^1.0.0",
     "sweetalert2": "^11.4.29"
   },
   "build": {

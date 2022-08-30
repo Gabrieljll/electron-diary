@@ -146,20 +146,23 @@ async function fichaClienteEditada(idFichaEditada){
 
 async function setearFiltros(divFechasFichas, fechas){
     for(let i=0; i<fechas.length;i++){
-        let diaMes = String(new Date(fechas[i].fecha).getDate()).padStart(2, '0')+ '/' + String(new Date(fechas[i].fecha).getMonth() + 1).padStart(2, '0')
-        if(!document.getElementById(diaMes)){
-            contadorFichasPorFecha = await cantidadFichasPorFecha(fechas[i].fecha)
-            divFechasFichas.innerHTML += `
-            <div class="divBotonesFiltro animate__animated animate__fadeInUp">
-                <button onclick="filtrarFichas('${diaMes}')" id="${diaMes}" class="botonesFiltro btn btn-info">${arrayDiasSemana[new Date(fechas[i].fecha).getDay()] + ' '+diaMes} <br>(${+contadorFichasPorFecha} PEDIDOS)
-                </button>                
-            </div>
-            `
+        for(let j=0; i<fechas[i].length;j++){
+            let diaMes = String(new Date(fechas[i][j].fecha).getDate()).padStart(2, '0')+ '/' + String(new Date(fechas[i][j].fecha).getMonth() + 1).padStart(2, '0')
+            if(!document.getElementById(diaMes)){
+                contadorFichasPorFecha = await cantidadFichasPorFecha(fechas[i][j].fecha)
+                divFechasFichas.innerHTML += `
+                <div class="divBotonesFiltro animate__animated animate__fadeInUp">
+                    <button onclick="filtrarFichas('${diaMes}')" id="${diaMes}" class="botonesFiltro btn btn-info">${arrayDiasSemana[new Date(fechas[i][j].fecha).getDay()] + ' '+diaMes} <br>(${+contadorFichasPorFecha} PEDIDOS)
+                    </button>                
+                </div>
+                `
+            }
         }
+
     }
 }
 
-function renderFichasCliente(fichas,fechas) {
+function renderFichasCliente(fichas,fechas) {    
     divFechasFichas.innerHTML='';
 
     setearFiltros(divFechasFichas, fechas)
@@ -167,115 +170,120 @@ function renderFichasCliente(fichas,fechas) {
 
     if (!filtroFecha){
         divFichas.innerHTML = '';
-        fichas.forEach(ficha => {                        
-            divFichas.innerHTML += `
-                <div class="card bg-light my-2 animate__animated animate__fadeInUp">
-                    <div class="divBotonCopiarTexto">                    
-                        <buttton onclick="copiarTextoCard(${ficha.id})" class="btn btn-secondary botonCopiar">
-                        <img class="iconoCopiar" src="./img/copiar-64.png">
-                             COPIAR
-                        </buttton>
-                    </div>
-                    <h5 id="vendedora_${ficha.id}" class="textoCards textoCards_${ficha.id}"><strong>*Debora Sosa*</strong></h5>
-                    <br>
-                    <div class="divTextoCards">
-                        <h5 id="cliente_${ficha.id}" class="textoCards textoCards_${ficha.id}"><strong>*Cliente:*</strong>
-                            ${ficha.nombreCliente}
-                        </h5>
-                        <br>
-                        <h5 id="direccion_${ficha.id}" class="textoCards textoCards_${ficha.id}"><strong>*- Dirección de la entrega:* </strong>
-                            ${ficha.direccion}
-                        </h5>
-                        <br>
-                        <h5 id="celular_${ficha.id}" class="textoCards textoCards_${ficha.id}"><strong>*- Celular:* </strong>
-                            ${ficha.numeroContacto}
-                        </h5>
-                        <br>
-                        <h5 id="producto_${ficha.id}" class="textoCards textoCards_${ficha.id}"><strong>*- Producto:* </strong>
-                            ${ficha.producto}
-                        </h5>
-                        <br>
-                        <h5 id="precio_${ficha.id}" class="textoCards textoCards_${ficha.id}"><strong>*- Precio del producto que va a pagar el cliente:* </strong>
-                            $${ficha.precioProducto}
-                        </h5>
-                        <br>
-                        <h5 id="fecha_${ficha.id}" class="textoCards textoCards_${ficha.id}"><strong id="${ficha.fecha}">*- Día de entrega:*</strong>
-                        ${String(new Date(ficha.fecha).getDate()).padStart(2, '0')+ '/' + String(new Date(ficha.fecha).getMonth() + 1).padStart(2, '0')}
-                        </h5>
-                        <br>
-                        <h5 id="codigo_${ficha.id}" class="textoCards textoCards_${ficha.id}"><strong>*- Código de cliente:* </strong>
-                            ${ficha.numeroPedido}
-                        </h5>
-                        <br>
-                        <h5 id="observaciones_${ficha.id}" class="textoCards textoCards_${ficha.id}"><strong>*- Observaciones:* </strong>
-                            ${ficha.observaciones}
-                        </h5>
-                    </div>                    
-                    <br>
-                        <div class="divBotonEditar">
-                            <button onclick="editarFichaCliente(${ficha.id})" class="btn btn-primary botonEditar">EDITAR</button>
-                        </div>
-                        <div class="divBotonBorrar">
-                            <button onclick="borrarFichaCliente(${ficha.id})" class="btn btn-secondary botonEliminar">BORRAR</button>
-                        </div>
-                <div>
-            `
-        })
-    } else {
-        divFichas.innerHTML = '';
         fichas.forEach(ficha => {
-            let diaMes = String(new Date(ficha.fecha).getDate()).padStart(2, '0')+ '/' + String(new Date(ficha.fecha).getMonth() + 1).padStart(2, '0')
-            if(diaMes == fechaFiltroSeleccionada){
+            for(let i=0; i<ficha.length; i++){            
                 divFichas.innerHTML += `
                     <div class="card bg-light my-2 animate__animated animate__fadeInUp">
-                        <div class="divBotonCopiarTexto">
-                            <buttton onclick="copiarTextoCard(${ficha.id})" class="btn btn-secondary botonCopiar">
+                        <div class="divBotonCopiarTexto">                    
+                            <buttton onclick="copiarTextoCard(${ficha[i].id})" class="btn btn-secondary botonCopiar">
                             <img class="iconoCopiar" src="./img/copiar-64.png">
                                 COPIAR
                             </buttton>
                         </div>
-                        <h5 id="vendedora_${ficha.id}" class="textoCards"><strong>*Debora Sosa*</strong></h5>
+                        <h5 id="vendedora_${ficha[i].id}" class="textoCards textoCards_${ficha[i].id}"><strong>*Debora Sosa*</strong></h5>
                         <br>
                         <div class="divTextoCards">
-                            <h5 id="cliente_${ficha.id}" class="textoCards"><strong>*Cliente:*</strong>${ficha.nombreCliente}</h5>
-                            <br>
-                            <h5 id="direccion_${ficha.id}" class="textoCards"><strong>*- Dirección de la entrega:* </strong>
-                                ${ficha.direccion}
+                            <h5 id="cliente_${ficha[i].id}" class="textoCards textoCards_${ficha[i].id}"><strong>*Cliente:*</strong>
+                                ${ficha[i].nombreCliente}
                             </h5>
                             <br>
-                            <h5 id="celular_${ficha.id}" class="textoCards"><strong>*- Celular:* </strong>
-                                ${ficha.numeroContacto}
+                            <h5 id="direccion_${ficha[i].id}" class="textoCards textoCards_${ficha[i].id}"><strong>*- Dirección de la entrega:* </strong>
+                                ${ficha[i].direccion}
                             </h5>
                             <br>
-                            <h5 id="producto_${ficha.id}"class="textoCards"><strong>*- Producto:* </strong>
-                                ${ficha.producto}
+                            <h5 id="celular_${ficha[i].id}" class="textoCards textoCards_${ficha[i].id}"><strong>*- Celular:* </strong>
+                                ${ficha[i].numeroContacto}
                             </h5>
                             <br>
-                            <h5 id="precio_${ficha.id}" class="textoCards"><strong>*- Precio del producto que va a pagar el cliente:* </strong>
-                                $${ficha.precioProducto}
+                            <h5 id="producto_${ficha[i].id}" class="textoCards textoCards_${ficha[i].id}"><strong>*- Producto:* </strong>
+                                ${ficha[i].producto}
                             </h5>
                             <br>
-                            <h5 id="fecha_${ficha.id}" class="textoCards"><strong id="${ficha.fecha}">*- Día de entrega:*</strong>
-                            ${String(new Date(ficha.fecha).getDate()).padStart(2, '0')+ '/' + String(new Date(ficha.fecha).getMonth() + 1).padStart(2, '0')}
+                            <h5 id="precio_${ficha[i].id}" class="textoCards textoCards_${ficha[i].id}"><strong>*- Precio del producto que va a pagar el cliente:* </strong>
+                                $${ficha[i].precioProducto}
                             </h5>
                             <br>
-                            <h5 id="codigo_${ficha.id}" class="textoCards"><strong>*- Código de cliente:* </strong>
-                                ${ficha.numeroPedido}
+                            <h5 id="fecha_${ficha[i].id}" class="textoCards textoCards_${ficha[i].id}"><strong id="${ficha[i].fecha}">*- Día de entrega:*</strong>
+                            ${String(new Date(ficha[i].fecha).getDate()).padStart(2, '0')+ '/' + String(new Date(ficha[i].fecha).getMonth() + 1).padStart(2, '0')}
                             </h5>
                             <br>
-                            <h5 id="observaciones_${ficha.id}" class="textoCards"><strong>*- Observaciones:* </strong>
-                                ${ficha.observaciones}
+                            <h5 id="codigo_${ficha[i].id}" class="textoCards textoCards_${ficha[i].id}"><strong>*- Código de cliente:* </strong>
+                                ${ficha[i].numeroPedido}
                             </h5>
-                        </div>
-                        <br> 
+                            <br>
+                            <h5 id="observaciones_${ficha[i].id}" class="textoCards textoCards_${ficha[i].id}"><strong>*- Observaciones:* </strong>
+                                ${ficha[i].observaciones}
+                            </h5>
+                        </div>                    
+                        <br>
                             <div class="divBotonEditar">
-                                <button onclick="editarFichaCliente(${ficha.id})" class="btn btn-primary botonEditar">EDITAR</button>
+                                <button onclick="editarFichaCliente(${ficha[i].id})" class="btn btn-primary botonEditar">EDITAR</button>
                             </div>
                             <div class="divBotonBorrar">
-                                <button onclick="borrarFichaCliente(${ficha.id})" class="btn btn-secondary botonEliminar">BORRAR</button>
+                                <button onclick="borrarFichaCliente(${ficha[i].id})" class="btn btn-secondary botonEliminar">BORRAR</button>
                             </div>
                     <div>
-                  `
+                `
+            }
+        })
+    } else {
+        divFichas.innerHTML = '';
+        fichas.forEach(ficha => {
+            for(let i=0; i<ficha.length;i++){
+                let diaMes = String(new Date(ficha[i].fecha).getDate()).padStart(2, '0')+ '/' + String(new Date(ficha[i].fecha).getMonth() + 1).padStart(2, '0')
+                if(diaMes == fechaFiltroSeleccionada){
+                                    
+                    divFichas.innerHTML += `
+                        <div class="card bg-light my-2 animate__animated animate__fadeInUp">
+                            <div class="divBotonCopiarTexto">
+                                <buttton onclick="copiarTextoCard(${ficha[i].id})" class="btn btn-secondary botonCopiar">
+                                <img class="iconoCopiar" src="./img/copiar-64.png">
+                                    COPIAR
+                                </buttton>
+                            </div>
+                            <h5 id="vendedora_${ficha[i].id}" class="textoCards"><strong>*Debora Sosa*</strong></h5>
+                            <br>
+                            <div class="divTextoCards">
+                                <h5 id="cliente_${ficha[i].id}" class="textoCards"><strong>*Cliente:*</strong>${ficha[i].nombreCliente}</h5>
+                                <br>
+                                <h5 id="direccion_${ficha[i].id}" class="textoCards"><strong>*- Dirección de la entrega:* </strong>
+                                    ${ficha[i].direccion}
+                                </h5>
+                                <br>
+                                <h5 id="celular_${ficha[i].id}" class="textoCards"><strong>*- Celular:* </strong>
+                                    ${ficha[i].numeroContacto}
+                                </h5>
+                                <br>
+                                <h5 id="producto_${ficha[i].id}"class="textoCards"><strong>*- Producto:* </strong>
+                                    ${ficha[i].producto}
+                                </h5>
+                                <br>
+                                <h5 id="precio_${ficha[i].id}" class="textoCards"><strong>*- Precio del producto que va a pagar el cliente:* </strong>
+                                    $${ficha[i].precioProducto}
+                                </h5>
+                                <br>
+                                <h5 id="fecha_${ficha[i].id}" class="textoCards"><strong id="${ficha[i].fecha}">*- Día de entrega:*</strong>
+                                ${String(new Date(ficha[i].fecha).getDate()).padStart(2, '0')+ '/' + String(new Date(ficha[i].fecha).getMonth() + 1).padStart(2, '0')}
+                                </h5>
+                                <br>
+                                <h5 id="codigo_${ficha[i].id}" class="textoCards"><strong>*- Código de cliente:* </strong>
+                                    ${ficha[i].numeroPedido}
+                                </h5>
+                                <br>
+                                <h5 id="observaciones_${ficha[i].id}" class="textoCards"><strong>*- Observaciones:* </strong>
+                                    ${ficha[i].observaciones}
+                                </h5>
+                            </div>
+                            <br> 
+                                <div class="divBotonEditar">
+                                    <button onclick="editarFichaCliente(${ficha[i].id})" class="btn btn-primary botonEditar">EDITAR</button>
+                                </div>
+                                <div class="divBotonBorrar">
+                                    <button onclick="borrarFichaCliente(${ficha[i].id})" class="btn btn-secondary botonEliminar">BORRAR</button>
+                                </div>
+                        <div>
+                    `
+                }
             }
         })
     }
@@ -404,7 +412,7 @@ async function borrarFichaCliente(id){
 
 const getFichasCliente = async () =>{
     arrayFichas = await main.getFichasCliente()
-    arrayFechasFichas = await getDiasFichas()    
+    arrayFechasFichas = await getDiasFichas()        
     await renderFichasCliente(arrayFichas,arrayFechasFichas)
 }
 
