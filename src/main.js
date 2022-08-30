@@ -23,8 +23,8 @@ async function nuevaFichaCliente(fichaCliente) {
 
 async function borrarFichaCliente(id) {
     const conn = await getConnection()
-    const result = await conn.query('DELETE FROM fichascliente WHERE id = ?', id)
-    return result
+    const result = await conn.query('DELETE FROM fichascliente WHERE id = ?', id)    
+    return result[0]
 }
 
 async function getFichaById(id){
@@ -42,19 +42,19 @@ async function actualizarFichaCliente(id, ficha){
 async function getFichasCliente() {
     const conn = await getConnection()
     const fichas = await conn.query('SELECT * FROM fichascliente ORDER BY id DESC')
-    return fichas
+    return fichas[0]
 }
 
 async function getDiasFichas(){
     const conn = await getConnection()
     const fechas = await conn.query('SELECT fecha FROM fichascliente ORDER BY fecha ASC')
-    return fechas
+    return fechas[0]
 }
 
 async function getFichasPorFecha(fecha){
     const conn = await getConnection()
     const result = await conn.query('SELECT * FROM fichascliente WHERE fecha = ?', fecha)
-    return result.length
+    return result[0].length
 
 }
 
