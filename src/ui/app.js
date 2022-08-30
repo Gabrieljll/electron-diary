@@ -291,7 +291,7 @@ function copiarTextoCard(id){
     
     texto = cliente.innerText+"\n\n"+direccion.innerText+"\n\n"+celular.innerText+"\n\n"+producto.innerText+"\n\n"+precio.innerText+"\n\n"+fecha.innerText+"\n\n"+codigo.innerText+"\n\n"+observaciones.innerText;
     
-    debugger
+    
     navigator.clipboard.writeText(texto)
         .then(() => {
             Swal.fire({
