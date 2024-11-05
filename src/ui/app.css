@@ -1,6 +1,6 @@
 @font-face {
     font-family: "orange";
-    src: url("./fonts/Lora-Italic-VariableFont_wght.ttf");
+    src: url("./fonts/AntonSC-Regular.ttf");
   }
 
   html{    
@@ -15,9 +15,8 @@
 body {
     margin: 0;     
     overflow: auto;
-    padding: 0;        
-    background: rgb(232,156,225);
-    background: linear-gradient(90deg, rgba(232,156,225,1) 25%, rgba(208,157,236,1) 50%, rgba(159,193,228,1) 75%);
+    padding: 0 150px;        
+    background: rgb(255, 255, 255);
     background-size: 100%;  
     height: 100vh;  
     width: 100%;
@@ -25,14 +24,36 @@ body {
 body::after{
     opacity: 0.5;
 }
+
+nav{
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 100px;
+}
+
+.div-botones-nav{
+    border: 1px solid lightgray;
+    margin: 0px 20px
+}
+
+.nav-buttons{
+    width: 150px;
+    height: 50px;
+    font-size: x-large;
+}
+
 #fichas {
     height: 100vh;
     margin: auto;
     width: 100%;
     justify-content: space-around;
-    display: grid;
-    grid-template-columns: repeat(3, 500px);
+    
 }
+
+
+
 
 .botonesFiltro{
     background-color: #a153cd !important;
@@ -89,6 +110,7 @@ body::after{
 
 .tituloModal{
     margin-top: 20px;
+    font-family: 'Orange';
 }
 
 hr {
@@ -97,16 +119,21 @@ hr {
 
 .divBotonNuevoCliente{
     display:flex;
-    justify-content: center;
+    justify-content: end;
     width: 100%;
     margin-bottom: 10px;
+    margin-right: 200px;
 }
 
 .botonNuevoCliente{
-    width: 150px;
+    font-weight: 100;
+    letter-spacing: 0.5px;
+    font-size: x-large;
+    width: 200px;
     height: 100px;
-    background-color: rgb(90 196 199 / 80%) !important;
-    border: 1px solid lightseagreen;
+    background-color: rgba(12, 141, 59, 0.8) !important;
+    border: 1px solid rgb(0, 0, 0);
+    color: white;
 }
 .card{    
     border: solid 1px black;

@@ -2,11 +2,11 @@ const {BrowserWindow, Notification, webContents} = require('electron')
 const {getConnection} = require('./database')
 const { ipcMain } = require('electron');
 
-async function nuevaFichaCliente(fichaCliente) {
+async function nuevoProducto(fichaCliente) {
     try{
         const conn = await getConnection();
         fichaCliente.precioProducto = parseFloat(fichaCliente.precioProducto)
-        const result = await conn.query('INSERT INTO fichascliente SET ?', fichaCliente)
+        const result = await conn.query('INSERT INTO stock_productos SET ?', fichaCliente)
 
         new Notification({
             title: 'Agenda Dinámica',
@@ -21,39 +21,39 @@ async function nuevaFichaCliente(fichaCliente) {
     }
 }
 
-async function borrarFichaCliente(id) {
+async function borrarRegistroProducto(id) {
     const conn = await getConnection()
-    const result = await conn.query('DELETE FROM fichascliente WHERE id = ?', id)
+    const result = await conn.query('DELETE FROM stock_productos WHERE id = ?', id)
     return result
 }
 
-async function getFichaById(id){
+async function getProductoById(id){
     const conn = await getConnection()
-    const result = await conn.query('SELECT * FROM fichascliente WHERE id = ?', id)
+    const result = await conn.query('SELECT * FROM stock_productos WHERE id = ?', id)
     return result[0]
 }
 
-async function actualizarFichaCliente(id, ficha){
+async function actualizarProducto(id, ficha){
     const conn = await getConnection()
-    const result = await conn.query('UPDATE fichascliente SET ? WHERE id = ?',[ficha, id])
+    const result = await conn.query('UPDATE stock_productos SET ? WHERE id = ?',[ficha, id])
     return result[0]
 }
 
-async function getFichasCliente() {
+async function getProductos() {
     const conn = await getConnection()
-    const fichas = await conn.query('SELECT * FROM fichascliente ORDER BY id DESC')
+    const fichas = await conn.query('SELECT * FROM stock_productos ORDER BY id DESC')
     return fichas
 }
 
 async function getDiasFichas(){
     const conn = await getConnection()
-    const fechas = await conn.query('SELECT fecha FROM fichascliente ORDER BY fecha ASC')
+    const fechas = await conn.query('SELECT fecha FROM stock_productos ORDER BY fecha ASC')
     return fechas
 }
 
 async function getFichasPorFecha(fecha){
     const conn = await getConnection()
-    const result = await conn.query('SELECT * FROM fichascliente WHERE fecha = ?', fecha)
+    const result = await conn.query('SELECT * FROM stock_productos WHERE fecha = ?', fecha)
     return result.length
 
 }
@@ -82,11 +82,11 @@ function createWindow(){
 
 module.exports = {
     createWindow,
-    nuevaFichaCliente,
-    getFichasCliente,
-    borrarFichaCliente,
-    getFichaById,
-    actualizarFichaCliente,
+    nuevoProducto,
+    getProductos,
+    borrarProducto,
+    getProductoById,
+    actualizarProducto,
     getDiasFichas,
     getFichasPorFecha
 }

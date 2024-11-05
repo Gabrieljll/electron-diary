@@ -1,7 +1,7 @@
 {
-  "name": "electron-diary",
+  "name": "pombero-alcoholic-app",
   "version": "1.0.0",
-  "description": "Agenda Dinámica",
+  "description": "Pombero Alcoholic App",
   "main": "src/index.js",
   "scripts": {
     "start": "electron .",
@@ -19,8 +19,8 @@
     "sweetalert2": "^11.4.29"
   },
   "build": {
-    "appId": "com.agenda.dinamica",
-    "productName": "Agenda Dinamica",
+    "appId": "com.alcoholic.pombero",
+    "productName": "Pombero Alcoholic",
     "win": {
       "target": [
         "nsis",

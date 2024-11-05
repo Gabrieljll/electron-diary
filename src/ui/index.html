@@ -11,14 +11,22 @@
 </head>
 <body>    
     <main class="container-fluid">
+        <nav>
+            <div class="div-botones-nav">
+                <button class="btn btn-light nav-buttons">Ventas</button>
+            </div>
+            <div class="div-botones-nav">
+                <button class="btn btn-light nav-buttons">Stock</button>
+            </div>
+        </nav>
         <div class="row">
             <div class="divBotonNuevoCliente">
-                <button onclick="abrirModalAgendar()" class="btn btn-success botonNuevoCliente">NUEVO<br>CLIENTE</button>
+                <button onclick="abrirModalAgregarProducto()" class="btn btn-success botonNuevoCliente">Nuevo Producto</button>
             </div>
                         
             <div class="">
                 <div class="divBotonLimpiarFiltro">
-                    <button onclick="window.location.reload()"type="button" class="btn btn-secondary botonLimpiarFiltro">LIMPIAR FILTRO<br> DE FECHAS</button>
+                    <input type="text" id="filtroTexto" class="form-control" placeholder="Buscar...">
                 </div>
                 <div id="divFechasFichas"></div>
                 <div style="position: relative;" id="fichas"></div>
