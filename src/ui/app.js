@@ -20,17 +20,35 @@ function abrirModalAgregarProducto() {
         html: `
         <h1 class="tituloModal">Nuevo Producto</h1>
         <hr>
-        <form id="formulario_producto">
-            <input type="text" id="nombre" placeholder="Nombre" class="form-control" required>
-            <input type="number" id="precio" placeholder="Precio" class="form-control" required>
-            <input type="text" id="descripcion" placeholder="Descripción" class="form-control">
-            <input type="file" id="imagen" accept="image/*" onchange="cargarImagen(event, 'imagen')" required>
-            <img id="preview" src="" alt="Vista previa de la imagen seleccionada">
-            <input type="number" id="cantidad" placeholder="Cantidad" class="form-control" required>
-            <button type="button" onclick="agregarNuevoProducto()" class="btn btn-success mt-1">Guardar</button>
-        </form>`,
+        <div class="modalAgregar col-md-12 p-4 my-auto">
+            <form id="formulario_producto">
+                <div class="form-group">
+                    <label class="mt-2" for="nombre"><h5>Nombre</h5></label>
+                    <input type="text" id="nombre" placeholder="Nombre" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="mt-2" for="precio"><h5>Precio</h5></label>
+                    <input type="number" id="precio" placeholder="Precio" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="mt-2" for="descripcion"><h5>Descripción</h5></label>
+                    <input type="text" id="descripcion" placeholder="Descripción" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label class="mt-2" for="imagen"><h5>Imagen</h5></label>
+                    <input type="file" id="imagen" accept="image/*" onchange="cargarImagen(event, 'imagen')" class="form-control" required>
+                    <img id="preview" src="" alt="Vista previa de la imagen seleccionada" class="mt-2">
+                </div>
+                <div class="form-group">
+                    <label class="mt-2" for="cantidad"><h5>Cantidad</h5></label>
+                    <input type="number" id="cantidad" placeholder="Cantidad" class="form-control" required>
+                </div>
+                <button type="button" onclick="agregarNuevoProducto()" class="btn btn-success mt-1">Guardar</button>
+            </form>
+        </div>
+        `,
         showCloseButton: true,
-        showConfirmButton: false
+        showConfirmButton: false,
     });
 }
 
