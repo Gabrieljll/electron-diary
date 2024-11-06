@@ -1,16 +1,15 @@
 const {BrowserWindow, Notification, webContents} = require('electron')
 const {getConnection} = require('./database')
 const { ipcMain } = require('electron');
-
 async function nuevoProducto(fichaCliente) {
     try{
         const conn = await getConnection();
-        fichaCliente.precioProducto = parseFloat(fichaCliente.precioProducto)
+        fichaCliente.precio = parseFloat(fichaCliente.precio)
         const result = await conn.query('INSERT INTO stock_productos SET ?', fichaCliente)
 
         new Notification({
-            title: 'Agenda Dinámica',
-            body: 'Nueva ficha de cliente agendada'
+            title: 'Pombero Stock',
+            body: 'Nuevo Producto Agregado!'
         }).show()
 
         fichaCliente.id = result.insertId
@@ -66,6 +65,7 @@ function createWindow(){
         height: 600,
         show: false,
         webPreferences: {
+            webSecurity: false,
             nodeIntegration: true,
             contextIsolation: false,
             enableRemoteModule: true,
@@ -84,7 +84,7 @@ module.exports = {
     createWindow,
     nuevoProducto,
     getProductos,
-    borrarProducto,
+    borrarRegistroProducto,
     getProductoById,
     actualizarProducto,
     getDiasFichas,
