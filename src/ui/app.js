@@ -14,6 +14,220 @@ let nombreImagenGuardada = '';
 // Obtiene el contenedor de la tabla
 const divFichas = document.getElementById('fichas');
 
+
+async function cargarProductos() {
+    const productos = await main.getProductos(); // Llama a la función que obtiene los productos desde la base de datos
+    const selectProducto = document.getElementById('selectProducto');
+    
+    // Cargar opciones de productos
+    selectProducto.innerHTML = productos.map(p => `<option value="${p.id}" data-stock="${p.cantidad_disponible}" data-precio="${p.precio}">${p.nombre}</option>`).join('');
+}
+
+document.getElementById('selectProducto').addEventListener('change', validarStock);
+document.getElementById('cantidadProducto').addEventListener('input', validarStock);
+
+function validarStock() {
+    const selectProducto = document.getElementById('selectProducto');
+    const inputCantidad = document.getElementById('cantidadProducto');
+
+    const selectedOption = selectProducto.options[selectProducto.selectedIndex];
+    const stockDisponible = parseInt(selectedOption.getAttribute('data-stock'));
+    const cantidadSeleccionada = parseInt(inputCantidad.value);
+
+    if (cantidadSeleccionada > stockDisponible) {
+        Swal.fire('Stock insuficiente', `No hay suficiente stock para "${selectedOption.text}". Quedan ${stockDisponible} unidades.`, 'warning');
+        inputCantidad.value = stockDisponible; // Ajustar a la cantidad máxima
+    }
+}
+
+cargarProductos();
+
+let productosSeleccionados = [];
+
+function agregarProductoVenta() {
+    const selectProducto = document.getElementById('selectProducto');
+    const inputCantidad = document.getElementById('cantidadProducto');
+
+    const idProducto = selectProducto.value;
+    const nombreProducto = selectProducto.options[selectProducto.selectedIndex].text;
+    const precioProducto = parseFloat(selectProducto.options[selectProducto.selectedIndex].getAttribute('data-precio'));
+    const cantidad = parseInt(inputCantidad.value);
+    const stockDisponible = parseInt(selectProducto.options[selectProducto.selectedIndex].getAttribute('data-stock'));
+
+    if (cantidad <= 0 || isNaN(cantidad)) {
+        Swal.fire('Error', 'Ingresa una cantidad válida.', 'error');
+        return;
+    }
+
+    // Busca si el producto ya está en la lista de productos seleccionados
+    const productoExistente = productosSeleccionados.find(p => p.id === idProducto);
+
+    if (productoExistente) {
+        // Si el producto ya está en la lista, calcula la cantidad total con la nueva
+        const nuevaCantidadTotal = productoExistente.cantidad + cantidad;
+
+        if (nuevaCantidadTotal > stockDisponible) {
+            Swal.fire('Stock insuficiente', `No hay suficiente stock para "${nombreProducto}". Quedan ${stockDisponible - productoExistente.cantidad} unidades adicionales disponibles.`, 'warning');
+            return;
+        }
+
+        // Si hay suficiente stock, incrementa la cantidad del producto existente
+        productoExistente.cantidad = nuevaCantidadTotal;
+    } else {
+        // Si el producto no está en la lista, valida el stock y agrégalo
+        if (cantidad > stockDisponible) {
+            Swal.fire('Stock insuficiente', `No hay suficiente stock para "${nombreProducto}". Quedan ${stockDisponible} unidades.`, 'warning');
+            return;
+        }
+
+        productosSeleccionados.push({ id: idProducto, nombre: nombreProducto, cantidad, precio: precioProducto });
+    }
+
+    // Actualizar el resumen de venta y limpiar el campo de cantidad
+    actualizarResumenVenta();
+    inputCantidad.value = '';
+}
+
+function actualizarResumenVenta() {
+    const listaResumen = document.getElementById('listaResumen');
+    listaResumen.innerHTML = '';
+
+    productosSeleccionados.forEach((producto, index) => {
+        const item = document.createElement('li');
+        item.classList.add('list-group-item', 'd-flex', 'justify-content-between', 'align-items-center');
+        
+        item.textContent = `${producto.cantidad} - ${producto.nombre} ($${producto.precio.toFixed(2)} c/u)`;
+        
+        const botonEliminar = document.createElement('button');
+        botonEliminar.classList.add('btn', 'btn-light', 'btn-md', 'm-2', 'quitarProducto');
+        botonEliminar.innerHTML = 'x';
+        botonEliminar.onclick = () => quitarProducto(index);
+
+        item.appendChild(botonEliminar);
+        listaResumen.appendChild(item);
+    });
+
+    actualizarTotalConEnvio();
+}
+
+function quitarProducto(index) {
+    productosSeleccionados.splice(index, 1);
+    actualizarResumenVenta();
+}
+
+function calcularTotalProductos() {
+    return productosSeleccionados.reduce((total, producto) => total + (producto.precio * producto.cantidad), 0);
+}
+
+function actualizarTotalConEnvio() {
+    const costoEnvio = parseFloat(document.getElementById('costoEnvio').value) || 0;
+    const totalProductos = calcularTotalProductos();
+    const totalConEnvio = totalProductos + costoEnvio;
+
+    document.getElementById('totalConEnvio').textContent = `$${totalConEnvio.toFixed(2)}`;
+}
+
+async function agregarNuevaVenta() {
+    const cliente = document.getElementById('cliente').value;
+
+    // Validar que haya un cliente y productos seleccionados
+    if (!cliente || productosSeleccionados.length === 0) {
+        Swal.fire('Error', 'Por favor, completa todos los campos y selecciona al menos un producto.', 'error');
+        return;
+    }
+
+    // Descontar stock y guardar la venta
+    for (const producto of productosSeleccionados) {
+        const { id, cantidad } = producto;
+
+        // Obtén el producto de la base de datos y verifica el stock
+        const productoDB = await main.getProductoById(id);
+        if (productoDB.cantidad_disponible < cantidad) {
+            Swal.fire('Error', `Stock insuficiente para el producto ${productoDB.nombre}.`, 'error');
+            return;
+        }
+
+        // Descontar cantidad y actualizar en la base de datos
+        const nuevaCantidad = productoDB.cantidad_disponible - cantidad;
+        await main.actualizarProducto(id, { cantidad_disponible: nuevaCantidad });
+    }
+
+    // Guardar la información de la venta en la base de datos
+    await main.nuevaVenta({ cliente, productos: productosSeleccionados });
+    Swal.fire('Venta registrada', 'La venta se ha registrado correctamente.', 'success');
+
+    // Limpiar formulario y lista de productos seleccionados
+    document.getElementById('cliente').value = '';
+    document.getElementById('cantidadProducto').value = '';
+    productosSeleccionados = [];
+}
+
+
+function mostrarVista(vista) {
+    const divVentas = document.getElementById('divVentas');
+    const divStock = document.getElementById('divStock');
+    const ventasButton = document.querySelector('.nav-buttons:nth-child(1)');
+    const stockButton = document.querySelector('.nav-buttons:nth-child(2)');
+
+    if (vista === 'ventas') {
+        divVentas.style.display = 'flex';
+        divStock.style.display = 'none';
+        ventasButton.classList.add('active');
+        stockButton.classList.remove('active');
+    } else if (vista === 'stock') {
+        divVentas.style.display = 'none';
+        divStock.style.display = 'block';
+        actualizarProductos();
+        ventasButton.classList.remove('active');
+        stockButton.classList.add('active');
+    }
+}
+
+
+async function agregarNuevaVenta() {
+    const cliente = document.getElementById('cliente').value;
+    const productosContainer = document.getElementById('productosSeleccionados');
+    const productosSeleccionados = [];
+
+    // Obtener productos y cantidades
+    productosContainer.querySelectorAll('.productoWrapper').forEach(wrapper => {
+        const selectProducto = wrapper.querySelector('select');
+        const inputCantidad = wrapper.querySelector('input');
+
+        const idProducto = selectProducto.value;
+        const cantidad = parseInt(inputCantidad.value);
+        
+        productosSeleccionados.push({ id: idProducto, cantidad: cantidad });
+    });
+
+    // Validar que al menos un producto esté seleccionado y cantidad sea válida
+    if (!cliente || productosSeleccionados.length === 0 || productosSeleccionados.some(p => p.cantidad <= 0)) {
+        Swal.fire('Error', 'Por favor, completa todos los campos requeridos y asegúrate de seleccionar productos y cantidades válidas.', 'error');
+        return;
+    }
+
+    // Descontar stock y guardar la venta
+    for (const producto of productosSeleccionados) {
+        const { id, cantidad } = producto;
+
+        // Obtén el producto de la base de datos y verifica el stock
+        const productoDB = await main.getProductoById(id);
+        if (productoDB.cantidad_disponible < cantidad) {
+            Swal.fire('Error', `Stock insuficiente para el producto ${productoDB.nombre}.`, 'error');
+            return;
+        }
+
+        // Descontar cantidad y actualizar en la base de datos
+        const nuevaCantidad = productoDB.cantidad_disponible - cantidad;
+        await main.actualizarProducto(id, { cantidad_disponible: nuevaCantidad });
+    }
+
+    // Guardar información de la venta en la base de datos
+    await main.nuevaVenta({ cliente, productos: productosSeleccionados });
+    Swal.fire('Venta registrada', 'La venta se ha registrado correctamente.', 'success');
+}
+
+
 // Función para abrir el modal de agregar producto
 function abrirModalAgregarProducto() {
     Swal.fire({

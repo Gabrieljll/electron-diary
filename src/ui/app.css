@@ -8,8 +8,48 @@
     
 }
 
+.active {
+    background-color: #17a2b8; /* Color de fondo para el botón activo */
+    color: white;
+}
+
+#divVentas{
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    align-items: start;
+}
+
+#resumenVenta{
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    
+}
+.divRealizarVenta{
+    display: flex;
+    justify-content: center;
+    align-items: start;
+}
+
+.divVentasRealizadas{
+    display: flex;
+    justify-content: center;
+    align-items: start;
+}
+
 .btn{
     font-family: 'orange' !important;
+}
+
+#listaResumen, .quitarProducto{
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    
+}
+
+.quitarProducto{
+    border: solid 1px gray;
 }
 
 body {
@@ -169,6 +209,7 @@ hr {
 h5{
     font-family: orange;
     font-size: 0.85em;
+    letter-spacing: 0.5px;
 }
 .textoCards{
     color:white !important;
