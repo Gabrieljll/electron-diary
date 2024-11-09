@@ -12,6 +12,9 @@
 <body>    
     <main class="container-fluid">
         <nav>
+            <div>
+                <img class="logoImg" src="img/productos/CSGO.jpg" alt="logo">
+            </div>
             <div class="div-botones-nav">
                 <button class="btn btn-light nav-buttons" onclick="mostrarVista('ventas')">Ventas</button>
             </div>
@@ -21,7 +24,7 @@
         </nav>
     
         <!-- Vista de Ventas -->
-        <div id="divVentas" style="display: none;">
+        <div id="divVentas" style="display: flex;">
             <div class="divRealizarVenta">
                 <div class="">
                     <h2>Realizar Venta</h2>
@@ -62,7 +65,7 @@
                                 <label class="mt-2" for="total"><h5>Total con envío incluído</h5></label>
                                 <span id="totalConEnvio" class="form-control" style="display: inline-block; background: #f7f7f7; padding: 8px;">$0.00</span>
                             </div>
-                            <button type="button" onclick="agregarNuevaVenta()" class="btn btn-success mt-1">Guardar</button>
+                            <button type="button" onclick="registrarNuevaVenta()" class="btn btn-success mt-1 btn-guardar">Guardar</button>
                         </form>
                     </div>
 
@@ -77,13 +80,23 @@
             </div>
             <div class="divVentasRealizadas">
                 <h2>Ventas realizadas</h2>
+                
+                <!-- Selector de fecha -->
+                <div class="form-group">
+                    <label for="fechaVentas">Seleccionar Fecha:</label>
+                    <input type="date" id="fechaVentas" class="form-control" onchange="cargarVentasPorFecha()">
+                </div>
+                
+                <!-- Contenedor de la lista de ventas realizadas -->
+                <ul id="listaVentasRealizadas" class="list-group mt-3">
+                    <!-- Aquí se mostrarán las ventas realizadas -->
+                </ul>
             </div>
             
-            <!-- Aquí puedes agregar el contenido específico para la vista de ventas -->
         </div>
     
         <!-- Vista de Stock -->
-        <div id="divStock" style="display: block;">
+        <div id="divStock" style="display: none;">
             <div class="row">
                 <div class="divBotonNuevoCliente">
                     <button onclick="abrirModalAgregarProducto()" class="btn btn-success botonNuevoCliente">Nuevo Producto</button>

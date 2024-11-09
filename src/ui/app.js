@@ -127,40 +127,57 @@ function actualizarTotalConEnvio() {
     document.getElementById('totalConEnvio').textContent = `$${totalConEnvio.toFixed(2)}`;
 }
 
-async function agregarNuevaVenta() {
-    const cliente = document.getElementById('cliente').value;
+async function registrarNuevaVenta() {
+    const cliente = document.getElementById('nombreCliente').value;
+    const telefono = document.getElementById('telefono').value;
+    const direccion = document.getElementById('direccion').value;
+    const total = parseFloat(document.getElementById('totalConEnvio').textContent.replace('$', ''));
+    const productos = productosSeleccionados.map(producto => ({
+        id: producto.id,
+        cantidad: producto.cantidad
+    }));
 
     // Validar que haya un cliente y productos seleccionados
     if (!cliente || productosSeleccionados.length === 0) {
         Swal.fire('Error', 'Por favor, completa todos los campos y selecciona al menos un producto.', 'error');
         return;
     }
-
-    // Descontar stock y guardar la venta
-    for (const producto of productosSeleccionados) {
-        const { id, cantidad } = producto;
-
-        // Obtén el producto de la base de datos y verifica el stock
-        const productoDB = await main.getProductoById(id);
-        if (productoDB.cantidad_disponible < cantidad) {
-            Swal.fire('Error', `Stock insuficiente para el producto ${productoDB.nombre}.`, 'error');
-            return;
-        }
-
-        // Descontar cantidad y actualizar en la base de datos
-        const nuevaCantidad = productoDB.cantidad_disponible - cantidad;
-        await main.actualizarProducto(id, { cantidad_disponible: nuevaCantidad });
+    if (!direccion) {
+        Swal.fire('Error', 'Por favor ingresa una dirección válida.', 'error');
+        return;
     }
 
-    // Guardar la información de la venta en la base de datos
-    await main.nuevaVenta({ cliente, productos: productosSeleccionados });
-    Swal.fire('Venta registrada', 'La venta se ha registrado correctamente.', 'success');
+    try {
+        // Llamar a la función `registrarVenta` en `main.js`
+        await main.registrarVenta({
+            productos,
+            cliente,
+            telefono,
+            direccion,
+            total
+        });
 
-    // Limpiar formulario y lista de productos seleccionados
-    document.getElementById('cliente').value = '';
-    document.getElementById('cantidadProducto').value = '';
-    productosSeleccionados = [];
+        Swal.fire('Venta registrada', 'La venta se ha registrado correctamente y el stock ha sido actualizado.', 'success');
+
+        // Limpiar el formulario y la lista de productos seleccionados
+        document.getElementById('nombreCliente').value = '';
+        document.getElementById('telefono').value = '';
+        document.getElementById('direccion').value = '';
+        document.getElementById('cantidadProducto').value = '';
+        document.getElementById('costoEnvio').value = '';
+        productosSeleccionados = [];
+
+        actualizarResumenVenta();
+        // ** Actualizar la lista de ventas después de registrar la venta **
+        const fechaHoy = new Date().toISOString().split('T')[0];
+        await cargarVentasPorFecha(fechaHoy); // Actualiza la lista con la fecha de hoy
+    } catch (error) {
+        console.error('Error al registrar la venta:', error);
+        Swal.fire('Error', 'Hubo un problema al registrar la venta. Inténtalo nuevamente.', 'error');
+    }
 }
+
+
 
 
 function mostrarVista(vista) {
@@ -184,27 +201,24 @@ function mostrarVista(vista) {
 }
 
 
-async function agregarNuevaVenta() {
-    const cliente = document.getElementById('cliente').value;
-    const productosContainer = document.getElementById('productosSeleccionados');
+/* async function agregarNuevaVenta() {
+    const cliente = document.getElementById('nombreCliente').value;
+    const resumenProductos = document.getElementById('listaResumen'); // Contenedor del resumen de productos
     const productosSeleccionados = [];
 
-    // Obtener productos y cantidades
-    productosContainer.querySelectorAll('.productoWrapper').forEach(wrapper => {
-        const selectProducto = wrapper.querySelector('select');
-        const inputCantidad = wrapper.querySelector('input');
-
-        const idProducto = selectProducto.value;
-        const cantidad = parseInt(inputCantidad.value);
-        
-        productosSeleccionados.push({ id: idProducto, cantidad: cantidad });
-    });
-
-    // Validar que al menos un producto esté seleccionado y cantidad sea válida
-    if (!cliente || productosSeleccionados.length === 0 || productosSeleccionados.some(p => p.cantidad <= 0)) {
-        Swal.fire('Error', 'Por favor, completa todos los campos requeridos y asegúrate de seleccionar productos y cantidades válidas.', 'error');
+    // Comprobar que el resumen tenga productos listados
+    if (!cliente || resumenProductos.children.length === 0) {
+        Swal.fire('Error', 'Por favor, completa todos los campos requeridos y asegúrate de seleccionar al menos un producto.', 'error');
         return;
     }
+
+    // Obtener productos y cantidades desde el resumen
+    resumenProductos.querySelectorAll('.resumen-item').forEach(item => {
+        const idProducto = item.dataset.productoId;
+        const cantidad = parseInt(item.dataset.cantidad);
+
+        productosSeleccionados.push({ id: idProducto, cantidad: cantidad });
+    });
 
     // Descontar stock y guardar la venta
     for (const producto of productosSeleccionados) {
@@ -225,6 +239,71 @@ async function agregarNuevaVenta() {
     // Guardar información de la venta en la base de datos
     await main.nuevaVenta({ cliente, productos: productosSeleccionados });
     Swal.fire('Venta registrada', 'La venta se ha registrado correctamente.', 'success');
+
+    // Limpiar formulario y resumen de productos
+    document.getElementById('nombreCliente').value = '';
+    resumenProductos.innerHTML = '';
+} */
+
+
+// Al cargar la página, obtener ventas del día actual
+document.addEventListener('DOMContentLoaded', () => {
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('fechaVentas').value = hoy;
+    cargarVentasPorFecha(hoy);
+});
+
+// Función para cargar las ventas según la fecha seleccionada
+async function cargarVentasPorFecha(fecha = null) {
+    const fechaSeleccionada = fecha || document.getElementById('fechaVentas').value;
+    const ventas = await main.obtenerVentasPorFecha(fechaSeleccionada);
+
+    const ventasAgrupadas = ventas.reduce((acc, venta) => {
+        if (!acc[venta.id]) {
+            acc[venta.id] = {
+                ...venta,
+                productos: []
+            };
+        }
+        acc[venta.id].productos.push({
+            cantidad: venta.cantidad,
+            nombre: venta.producto_nombre,
+            precio: venta.producto_precio
+        });
+        return acc;
+    }, {});
+
+    const listaVentas = document.getElementById('listaVentasRealizadas');
+    listaVentas.innerHTML = '';
+
+    Object.values(ventasAgrupadas).forEach(venta => {
+        const ventaItem = document.createElement('li');
+        ventaItem.classList.add('list-group-item');
+        
+        ventaItem.innerHTML = `
+            <strong>Cliente:</strong> ${venta.cliente} <br>
+            <strong>Dirección:</strong> ${venta.direccion} <br>
+            <strong>Teléfono:</strong> ${venta.telefono} <br>
+            <strong>Total:</strong> $${venta.total.toFixed(2)}
+            <button class="btn btn-link btn-sm mt-1 btn-verDetalle" onclick="toggleDetalleVenta(${venta.id})">Ver Detalle</button>
+            <div id="detalleVenta${venta.id}" class="detalle-venta mt-2" style="display: none;">
+                <ul class="list-group list-group-flush">
+                    ${venta.productos.map(producto => `
+                        <li class="list-group-item">
+                            ${producto.cantidad} x ${producto.nombre} - $${producto.precio}
+                        </li>`).join('')}
+                </ul>
+            </div>
+        `;
+
+        listaVentas.appendChild(ventaItem);
+    });
+}
+
+// Función para mostrar/ocultar el detalle de productos de una venta
+function toggleDetalleVenta(ventaId) {
+    const detalleDiv = document.getElementById(`detalleVenta${ventaId}`);
+    detalleDiv.style.display = detalleDiv.style.display === 'none' ? 'block' : 'none';
 }
 
 
