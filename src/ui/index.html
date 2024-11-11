@@ -13,13 +13,19 @@
     <main class="container-fluid">
         <nav>
             <div>
-                <img class="logoImg" src="./img/logo/logo.jpg" alt="LOGO">
+                <img class="logoImg" src="./img/logo/logo.png" alt="LOGO">
             </div>
             <div class="div-botones-nav">
-                <button class="btn btn-light nav-buttons" onclick="mostrarVista('ventas')">Ventas</button>
+                <button class="btn btn-light nav-buttons" onclick="mostrarVista('ventas')">
+                    <img class="iconosNavegacion" src="./img/iconos/ventas.png" alt="ventas">
+                    Ventas
+                </button>
             </div>
             <div class="div-botones-nav">
-                <button class="btn btn-light nav-buttons" onclick="mostrarVista('stock')">Stock</button>
+                <button class="btn btn-light nav-buttons" onclick="mostrarVista('stock')">
+                    <img class="iconosNavegacion" src="./img/iconos/stock.png" alt="stock">
+                    Stock
+                </button>
             </div>
         </nav>
     
@@ -29,7 +35,7 @@
                 <div style="display: flex;justify-content: center;align-items: center;width: 100%;">
                     <h2 style="text-align: center;">Realizar Venta</h2>
                 </div>
-                <div style="display: flex; justify-content: start; align-items: start;">
+                <div style="display: flex; justify-content: start; align-items: start; margin-top: 20px;">
                     <div class="card">
                         <div class="col-md-12 p-4 my-auto">
                             <form id="formulario_venta">
