@@ -1,6 +1,74 @@
-const {BrowserWindow, Notification, webContents} = require('electron')
+const {BrowserWindow, Notification, webContents, ipcMain, app } = require('electron')
 const {getConnection} = require('./database')
-const { ipcMain } = require('electron');
+const ExcelJS = require('exceljs');
+const path = require('path');
+
+
+async function generarExcelGananciasDelDia(fecha) {
+    const conn = await getConnection();
+    const ventas = await conn.query(`
+        SELECT 
+            vp.nombre_cliente AS cliente, 
+            vp.direccion, 
+            vp.telefono, 
+            vp.total AS total,
+            op.cantidad, 
+            sp.nombre AS producto_nombre, 
+            sp.precio AS producto_precio
+        FROM venta_producto vp
+        JOIN orden_producto op ON vp.id_orden = op.id_orden
+        JOIN stock_productos sp ON op.id_producto = sp.id
+        WHERE DATE(vp.fecha) = ?
+    `, [fecha]);
+
+    // Verificar si `ventas` es un solo objeto y convertirlo en un array
+    const ventasArray = Array.isArray(ventas) ? ventas : [ventas];
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Ganancias del Día');
+
+    worksheet.columns = [
+        { header: 'Cliente', key: 'cliente', width: 20 },
+        { header: 'Dirección', key: 'direccion', width: 20 },
+        { header: 'Teléfono', key: 'telefono', width: 15 },
+        { header: 'Producto', key: 'producto_nombre', width: 25 },
+        { header: 'Cantidad', key: 'cantidad', width: 10 },
+        { header: 'Precio Unitario', key: 'producto_precio', width: 15 },
+        { header: 'Total Venta', key: 'total', width: 15 },
+    ];
+
+    let totalGanancias = 0;
+    ventasArray.forEach(venta => {
+        worksheet.addRow({
+            cliente: venta.cliente,
+            direccion: venta.direccion,
+            telefono: venta.telefono,
+            producto_nombre: venta.producto_nombre,
+            cantidad: venta.cantidad,
+            producto_precio: venta.producto_precio,
+            total: venta.total,
+        });
+        totalGanancias += venta.total;
+    });
+
+    worksheet.addRow({});
+    worksheet.addRow({ producto_nombre: 'Ganancias Totales', total: totalGanancias });
+
+    const filePath = path.join(app.getPath('desktop'), `ganancias_${fecha}.xlsx`);
+    await workbook.xlsx.writeFile(filePath);
+    
+    return filePath;
+}
+
+module.exports = { generarExcelGananciasDelDia };
+
+// Registrar el manejador de ipcMain en el proceso principal
+ipcMain.handle('descargar-ganancias-dia', async (event, fecha) => {
+    const filePath = await generarExcelGananciasDelDia(fecha);
+    return filePath;
+});
+
+
 async function nuevoProducto(fichaCliente) {
     try{
         const conn = await getConnection();

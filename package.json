@@ -15,6 +15,7 @@
     "@electron/remote": "^2.0.8",
     "builder-util-runtime": "^9.1.0",
     "electron-reload": "^2.0.0-alpha.1",
+    "exceljs": "^4.4.0",
     "promise-mysql": "^5.2.0",
     "sweetalert2": "^11.4.29"
   },

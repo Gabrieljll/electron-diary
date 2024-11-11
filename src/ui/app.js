@@ -4,6 +4,9 @@ const main = remote.require('./main');
 const fs = require('fs');
 const { nativeImage } = require('electron');
 const path = require('path');
+const { ipcRenderer } = require('electron');
+
+
 // Variables y constantes iniciales
 let arrayProductos = [];
 let filtroFecha = false;
@@ -14,6 +17,27 @@ let nombreImagenGuardada = '';
 // Obtiene el contenedor de la tabla
 const divFichas = document.getElementById('fichas');
 
+
+
+async function descargarGananciasDelDia() {
+    const fecha = document.getElementById('fechaVentas').value;
+    if (!fecha) {
+        alert("Por favor, seleccione una fecha.");
+        return;
+    }
+
+    try {
+        const filePath = await ipcRenderer.invoke('descargar-ganancias-dia', fecha);
+
+        // Descargar el archivo Excel generado
+        const link = document.createElement('a');
+        link.href = `file://${filePath}`;
+        link.download = `ganancias_${fecha}.xlsx`;
+        link.click();
+    } catch (error) {
+        console.error("Error al descargar el archivo:", error);
+    }
+}
 
 async function cargarProductos() {
     const productos = await main.getProductos(); // Llama a la función que obtiene los productos desde la base de datos

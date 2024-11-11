@@ -32,6 +32,14 @@
     padding-bottom: 50px;
 }
 
+.card h5{
+    letter-spacing: 1.1px !important;
+}
+
+#divVentas h2{
+    font-size: 2rem;
+}
+
 #resumenVenta{
     display: flex;
     justify-content: center;
@@ -41,8 +49,13 @@
 }
 
 .logoImg{
-    width: 100px;
-    height: 100px;
+    width: 190px;
+    height: 120px;
+    float: left;
+    position: absolute;
+    left: 50px;
+    top: 0px;
+    mask-image: linear-gradient(white 70%, transparent) !important;
 }
 
 .btn-verDetalle{
@@ -52,8 +65,10 @@
 
 .divRealizarVenta{
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: start;
+    border-right: 1px solid black;
 }
 
 .divVentasRealizadas{
@@ -100,7 +115,7 @@ nav{
     justify-content: center;
     align-items: center;
     margin-bottom: 60px;
-    background: black;
+    /* background: black; */
     position: relative;
 }
 
@@ -207,16 +222,15 @@ hr {
 }
 .card{    
     border: solid 1px black;
-    background-color: rgb(229, 135, 188) !important;
+    background-color: rgb(255, 255, 255);
     width: 500px;
-    height: 550px;
 }
 
 .divTextoCards{
     margin-bottom:10px;
 }
 .card.bg-light{    
-    background: rgb(186,139,198);
+    
     background: linear-gradient(90deg, rgb(180 115 197) 25%, rgb(209 104 180) 50%, rgba(180,115,197,1) 75%);    
 }
 .divBotonCopiarTexto{
