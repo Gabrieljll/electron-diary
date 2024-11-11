@@ -17,9 +17,34 @@ let nombreImagenGuardada = '';
 // Obtiene el contenedor de la tabla
 const divFichas = document.getElementById('fichas');
 
+// Configuración de la contraseña
+const CONTRASENA = "pombero91124";
 
+// Función para solicitar contraseña
+async function solicitarContrasena() {
+    const { value: password } = await Swal.fire({
+        title: 'Autenticación requerida',
+        input: 'password',
+        inputLabel: 'Ingresa la contraseña para continuar',
+        inputPlaceholder: 'Contraseña',
+        inputAttributes: {
+            maxlength: 20,
+            autocapitalize: 'off',
+            autocorrect: 'off'
+        },
+        showCancelButton: true
+    });
+
+    return password === CONTRASENA;
+}
 
 async function descargarGananciasDelDia() {
+    const tieneAcceso = await solicitarContrasena();
+    if (!tieneAcceso) {
+        Swal.fire('Acceso denegado', 'La contraseña ingresada es incorrecta', 'error');
+        return;
+    }
+
     const fecha = document.getElementById('fechaVentas').value;
     if (!fecha) {
         alert("Por favor, seleccione una fecha.");
@@ -28,8 +53,6 @@ async function descargarGananciasDelDia() {
 
     try {
         const filePath = await ipcRenderer.invoke('descargar-ganancias-dia', fecha);
-
-        // Descargar el archivo Excel generado
         const link = document.createElement('a');
         link.href = `file://${filePath}`;
         link.download = `ganancias_${fecha}.xlsx`;
@@ -204,7 +227,7 @@ async function registrarNuevaVenta() {
 
 
 
-function mostrarVista(vista) {
+async function mostrarVista(vista) {
     const divVentas = document.getElementById('divVentas');
     const divStock = document.getElementById('divStock');
     const ventasButton = document.querySelector('.nav-buttons:nth-child(1)');
@@ -216,6 +239,12 @@ function mostrarVista(vista) {
         ventasButton.classList.add('active');
         stockButton.classList.remove('active');
     } else if (vista === 'stock') {
+        const tieneAcceso = await solicitarContrasena();
+        if (!tieneAcceso) {
+            Swal.fire('Acceso denegado', 'La contraseña ingresada es incorrecta', 'error');
+            return;
+        }
+
         divVentas.style.display = 'none';
         divStock.style.display = 'block';
         actualizarProductos();
