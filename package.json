@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder--win-x64",
+    "dist": "electron-builder --win --x64",
     "pack": "build --dir"
   },
   "keywords": [],
@@ -14,6 +14,7 @@
   "dependencies": {
     "@electron/remote": "^2.0.8",
     "builder-util-runtime": "^9.1.0",
+    "dotenv": "^16.4.5",
     "electron-reload": "^2.0.0-alpha.1",
     "exceljs": "^4.4.0",
     "promise-mysql": "^5.2.0",
@@ -27,11 +28,11 @@
         "nsis",
         "zip"
       ],
-      "icon": "build/phonebook.png"
+      "icon": "build/logo.jpeg"
     }
   },
   "devDependencies": {
     "electron": "^20.0.2",
-    "electron-builder": "^23.3.3"
+    "electron-builder": "^23.6.0"
   }
 }

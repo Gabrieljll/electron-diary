@@ -102,14 +102,14 @@ async function getProductoById(id){
 
 async function actualizarProducto(id, producto) {
     const conn = await getConnection();
-    const { nombre, precio, descripcion, imagen, cantidad_disponible } = producto;
+    const { nombre, precio, descripcion, cantidad_disponible } = producto;
     
     // Realizamos la consulta de actualización con las propiedades recibidas
     await conn.query(
         `UPDATE stock_productos 
-         SET nombre = ?, precio = ?, descripcion = ?, imagen = ?, cantidad_disponible = ? 
+         SET nombre = ?, precio = ?, descripcion = ?, cantidad_disponible = ? 
          WHERE id = ?`,
-        [nombre, precio, descripcion, imagen, cantidad_disponible, id]  // Pasamos los valores en el orden correcto
+        [nombre, precio, descripcion, cantidad_disponible, id]  // Pasamos los valores en el orden correcto
     );
 }
 

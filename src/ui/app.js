@@ -12,7 +12,6 @@ let arrayProductos = [];
 let filtroFecha = false;
 let fechaFiltroSeleccionada = '';
 let filtroTexto = '';
-let nombreImagenGuardada = '';
 
 // Obtiene el contenedor de la tabla
 const divFichas = document.getElementById('fichas');
@@ -238,6 +237,7 @@ async function mostrarVista(vista) {
         divStock.style.display = 'none';
         ventasButton.classList.add('active');
         stockButton.classList.remove('active');
+        await actualizarProductos();
     } else if (vista === 'stock') {
         const tieneAcceso = await solicitarContrasena();
         if (!tieneAcceso) {
@@ -381,11 +381,6 @@ function abrirModalAgregarProducto() {
                     <input type="text" id="descripcion" placeholder="Descripción" class="form-control">
                 </div>
                 <div class="form-group">
-                    <label class="mt-2" for="imagen"><h5>Imagen</h5></label>
-                    <input type="file" id="imagen" accept="image/*" onchange="cargarImagen(event, 'imagen')" class="form-control" required>
-                    <img id="preview" src="" alt="Vista previa de la imagen seleccionada" class="mt-2">
-                </div>
-                <div class="form-group">
                     <label class="mt-2" for="cantidad"><h5>Cantidad</h5></label>
                     <input type="number" id="cantidad" placeholder="Cantidad" class="form-control" required>
                 </div>
@@ -404,11 +399,10 @@ async function agregarNuevoProducto() {
     const nombreProducto = document.getElementById('nombre').value;
     const precio = document.getElementById('precio').value;
     const descripcion = document.getElementById('descripcion').value;
-    const imagen = document.getElementById('imagen').getAttribute('value'); // Retrieve the stored image name
     const cantidad = document.getElementById('cantidad').value;
 
-    if (nombreProducto && precio && imagen && cantidad) {
-        const nuevoProducto = { nombre: nombreProducto, precio: precio, descripcion: descripcion, imagen: imagen, cantidad_disponible: cantidad };
+    if (nombreProducto && precio && cantidad) {
+        const nuevoProducto = { nombre: nombreProducto, precio: precio, descripcion: descripcion, cantidad_disponible: cantidad };
         await main.nuevoProducto(nuevoProducto);
         Swal.close();
         await actualizarProductos();
@@ -446,7 +440,6 @@ function renderListaProductos(productos) {
                     <th>Nombre</th>
                     <th>Precio</th>
                     <th>Descripción</th>
-                    <th>Imagen</th>
                     <th>Cantidad Disponible</th>
                     <th>Acciones</th>
                 </tr>
@@ -458,10 +451,6 @@ function renderListaProductos(productos) {
                         <td>${p.nombre}</td>
                         <td>${p.precio}</td>
                         <td>${p.descripcion}</td>
-                        <td>
-                            <img src="img/productos/${p.imagen || 'default.png'}" width="50" 
-                                onerror="this.src='img/productos/default.png';">
-                        </td>
                         <td>${p.cantidad_disponible}</td>
                         <td>
                             <button onclick="editarProducto(${p.id})" class="btn btn-primary btn-sm">EDITAR</button>
@@ -515,12 +504,6 @@ async function editarProducto(idProducto){
                 <input type="text" id="descripcion_edit" placeholder="Descripción" class="form-control" value="${productoDevuelto.descripcion}" autofocus required="false">
             </div>
             <div class="form-group">
-                <label class="mt-2" for=""><h5>Imagen</h5></label>
-                <input type="file" id="imagen_edit" accept="image/*" onchange="cargarImagen(event, 'imagen_edit')" class="form-control" value="${productoDevuelto.imagen}" autofocus required="true">
-                <img id="preview" src="img/productos/${productoDevuelto.imagen}" alt="Vista previa de la imagen seleccionada">
-
-            </div>
-            <div class="form-group">
                 <label class="mt-2" for=""><h5>Cantidad</h5></label>
                 <input type="number" id="cantidad_edit" placeholder="Cantidad" class="form-control" value="${productoDevuelto.cantidad_disponible}" autofocus required="true">
             </div>
@@ -545,12 +528,10 @@ async function fichaClienteEditada(idProductoEditado) {
     const descripcion_edit = document.getElementById('descripcion_edit').value;
     const cantidad_edit = document.getElementById('cantidad_edit').value;
 
-    // Utilizar el nombre de la imagen actualizada o existente
     const productoEditado = {
         nombre: nombreProducto_edit,
         precio: precio_edit,
         descripcion: descripcion_edit,
-        imagen: nombreImagenGuardada || document.getElementById('imagen_edit').getAttribute('value'),
         cantidad_disponible: cantidad_edit
     };
 
@@ -559,8 +540,8 @@ async function fichaClienteEditada(idProductoEditado) {
     await actualizarProductos();
 }
 
-function validarCamposFormulario(nombreProducto, precio, descripcion, imagen, cantidad){
-    if( nombreProducto.value != '' && precio.value != '' && imagen.value != '' && cantidad.value != '' ){
+function validarCamposFormulario(nombreProducto, precio, descripcion, cantidad){
+    if( nombreProducto.value != '' && precio.value != '' && cantidad.value != '' ){
         return true
     } else {
         return false;
@@ -589,33 +570,6 @@ async function borrarProducto(id){
       })
     return
 }
-
-
-
-
-function cargarImagen(event, imagenId) {
-    const file = event.target.files[0];
-    if (file) {
-        const imagePath = path.join(__dirname, 'img/productos', file.name);
-
-        // Cargar la imagen
-        const image = nativeImage.createFromPath(imagePath);
-        if (!image.isEmpty()) {
-            document.getElementById('preview').src = image.toDataURL();
-
-            // Verificar si el elemento con ID `imagenId` existe
-            const imagenElement = document.getElementById(imagenId);
-            if (imagenElement) {
-                imagenElement.setAttribute('value', file.name);
-            } else {
-                console.error(`Elemento con ID ${imagenId} no encontrado.`);
-            }
-        } else {
-            console.error('No se pudo cargar la imagen.');
-        }
-    }
-}
-
 
 // Inicialización de eventos y datos
 document.getElementById("filtroTexto").addEventListener("input", filtrarPorTexto);
