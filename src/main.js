@@ -187,13 +187,13 @@ async function agregarProductoAOrden(idOrden, idProducto, cantidad) {
 }
 
 // Función para registrar la venta en la tabla `venta_producto`
-async function crearVentaProducto({ idOrden, cliente, telefono, direccion, total }) {
+async function crearVentaProducto({ idOrden, cliente, telefono, direccion, metodoPago, total }) {
     const conn = await getConnection();
     const fecha = new Date(); // Asumimos que la fecha es la fecha actual
 
     await conn.query(
-        'INSERT INTO venta_producto (id_orden, nombre_cliente, telefono, direccion, total, fecha) VALUES (?, ?, ?, ?, ?, ?)',
-        [idOrden, cliente, telefono, direccion, total, fecha]
+        'INSERT INTO venta_producto (id_orden, nombre_cliente, telefono, direccion, modo_pago, total, fecha) VALUES (?, ?, ?, ?, ?, ?)',
+        [idOrden, cliente, telefono, direccion, metodoPago, total, fecha]
     );
 }
 
@@ -225,7 +225,7 @@ async function actualizarComprasCliente(nombre_cliente, telefono) {
 }
 
 // Función para manejar el flujo completo de una venta
-async function registrarVenta({ productos, cliente, telefono, direccion, total }) {
+async function registrarVenta({ productos, cliente, telefono, direccion, metodoPago, total }) {
     try {
         // Paso 1: Crear una nueva orden
         const idOrden = await crearOrden();
@@ -241,6 +241,7 @@ async function registrarVenta({ productos, cliente, telefono, direccion, total }
             cliente,
             telefono,
             direccion,
+            metodoPago,
             total
         });
 

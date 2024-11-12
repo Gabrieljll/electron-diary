@@ -71,6 +71,15 @@
                                     <input type="number" id="costoEnvio" placeholder="Costo del envío" class="form-control" onchange="actualizarTotalConEnvio()">
                                 </div>
                                 <div class="form-group">
+                                    <label for="metodoPago">Método de Pago</label>
+                                    <select id="metodoPago" class="form-control">
+                                        <option value="efectivo">Efectivo</option>
+                                        <option value="transferencia">Transferencia</option>
+                                        <option value="debito">Débito</option>
+                                        <option value="credito">Crédito</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
                                     <label class="mt-2" for="total"><h5>Total con envío incluído</h5></label>
                                     <span id="totalConEnvio" class="form-control" style="display: inline-block; background: #f7f7f7; padding: 8px;">$0.00</span>
                                 </div>

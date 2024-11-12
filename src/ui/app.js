@@ -90,18 +90,37 @@ cargarProductos();
 
 let productosSeleccionados = [];
 
-function agregarProductoVenta() {
+
+// Actualizar stock en el frontend antes de agregar un producto
+async function obtenerStockActualizado(idProducto) {
+    const productoActualizado = await main.getProductoById(idProducto); // Obtén el producto específico desde la BD
+    return productoActualizado.cantidad_disponible;
+}
+
+async function agregarProductoVenta() {
+    await actualizarProductos()
     const selectProducto = document.getElementById('selectProducto');
     const inputCantidad = document.getElementById('cantidadProducto');
+    const agregarBtn = document.querySelector('button[onclick="agregarProductoVenta()"]');
 
     const idProducto = selectProducto.value;
     const nombreProducto = selectProducto.options[selectProducto.selectedIndex].text;
     const precioProducto = parseFloat(selectProducto.options[selectProducto.selectedIndex].getAttribute('data-precio'));
     const cantidad = parseInt(inputCantidad.value);
-    const stockDisponible = parseInt(selectProducto.options[selectProducto.selectedIndex].getAttribute('data-stock'));
 
+
+    // Deshabilitar el botón mientras se obtiene el stock más reciente
+    agregarBtn.disabled = true;
+
+    // Obtener el stock actualizado antes de proceder
+    const stockDisponible = await obtenerStockActualizado(idProducto);
+    selectProducto.options[selectProducto.selectedIndex].setAttribute('data-stock', stockDisponible); // Actualizar el atributo de stock en la opción
+
+
+    // Validar que la cantidad sea válida
     if (cantidad <= 0 || isNaN(cantidad)) {
         Swal.fire('Error', 'Ingresa una cantidad válida.', 'error');
+        agregarBtn.disabled = false; // Habilitar el botón de nuevo
         return;
     }
 
@@ -114,24 +133,28 @@ function agregarProductoVenta() {
 
         if (nuevaCantidadTotal > stockDisponible) {
             Swal.fire('Stock insuficiente', `No hay suficiente stock para "${nombreProducto}". Quedan ${stockDisponible - productoExistente.cantidad} unidades adicionales disponibles.`, 'warning');
+            agregarBtn.disabled = false; // Habilitar el botón de nuevo
             return;
         }
 
         // Si hay suficiente stock, incrementa la cantidad del producto existente
         productoExistente.cantidad = nuevaCantidadTotal;
+        await actualizarProductos()
     } else {
         // Si el producto no está en la lista, valida el stock y agrégalo
         if (cantidad > stockDisponible) {
             Swal.fire('Stock insuficiente', `No hay suficiente stock para "${nombreProducto}". Quedan ${stockDisponible} unidades.`, 'warning');
+            agregarBtn.disabled = false; // Habilitar el botón de nuevo
             return;
         }
-
         productosSeleccionados.push({ id: idProducto, nombre: nombreProducto, cantidad, precio: precioProducto });
     }
 
     // Actualizar el resumen de venta y limpiar el campo de cantidad
     actualizarResumenVenta();
+    
     inputCantidad.value = '';
+    agregarBtn.disabled = false;
 }
 
 function actualizarResumenVenta() {
@@ -177,6 +200,7 @@ async function registrarNuevaVenta() {
     const cliente = document.getElementById('nombreCliente').value;
     const telefono = document.getElementById('telefono').value;
     const direccion = document.getElementById('direccion').value;
+    const metodoPago = document.getElementById('metodoPago').value;
     const total = parseFloat(document.getElementById('totalConEnvio').textContent.replace('$', ''));
     const productos = productosSeleccionados.map(producto => ({
         id: producto.id,
@@ -193,13 +217,22 @@ async function registrarNuevaVenta() {
         return;
     }
 
+    // Verificar que haya suficiente stock para cada producto
+    for (const producto of productos) {
+        const stockProducto = await main.getProductoById(producto.id); // Obtener producto desde el backend
+        if (stockProducto.cantidad_disponible < producto.cantidad) {
+            Swal.fire('Error', `No hay suficiente stock para el producto ${stockProducto.nombre}. Solo hay ${stockProducto.cantidad_disponible} unidades disponibles.`, 'error');
+            return;
+        }
+    }
+
     try {
-        // Llamar a la función `registrarVenta` en `main.js`
         await main.registrarVenta({
             productos,
             cliente,
             telefono,
             direccion,
+            metodoPago,
             total
         });
 
@@ -210,13 +243,19 @@ async function registrarNuevaVenta() {
         document.getElementById('telefono').value = '';
         document.getElementById('direccion').value = '';
         document.getElementById('cantidadProducto').value = '';
+        document.getElementById('metodoPago').value = '';
         document.getElementById('costoEnvio').value = '';
         productosSeleccionados = [];
 
         actualizarResumenVenta();
         // ** Actualizar la lista de ventas después de registrar la venta **
-        const fechaHoy = new Date().toISOString().split('T')[0];
-        await cargarVentasPorFecha(fechaHoy); // Actualiza la lista con la fecha de hoy
+        const fechaHoy = new Date();
+        const fechaFormateada = fechaHoy.getFullYear() + '-' 
+        + (fechaHoy.getMonth() + 1).toString().padStart(2, '0') + '-' 
+        + fechaHoy.getDate().toString().padStart(2, '0');
+        await cargarVentasPorFecha(fechaFormateada); // Actualiza la lista con la fecha de hoy
+        await actualizarProductos()
+            
     } catch (error) {
         console.error('Error al registrar la venta:', error);
         Swal.fire('Error', 'Hubo un problema al registrar la venta. Inténtalo nuevamente.', 'error');
@@ -231,8 +270,9 @@ async function mostrarVista(vista) {
     const divStock = document.getElementById('divStock');
     const ventasButton = document.querySelector('.nav-buttons:nth-child(1)');
     const stockButton = document.querySelector('.nav-buttons:nth-child(2)');
-
+    
     if (vista === 'ventas') {
+        window.location.reload()
         divVentas.style.display = 'flex';
         divStock.style.display = 'none';
         ventasButton.classList.add('active');
@@ -247,7 +287,7 @@ async function mostrarVista(vista) {
 
         divVentas.style.display = 'none';
         divStock.style.display = 'block';
-        actualizarProductos();
+        await actualizarProductos();
         ventasButton.classList.remove('active');
         stockButton.classList.add('active');
     }
