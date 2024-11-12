@@ -10,7 +10,8 @@ async function generarExcelGananciasDelDia(fecha) {
         SELECT 
             vp.nombre_cliente AS cliente, 
             vp.direccion, 
-            vp.telefono, 
+            vp.telefono,
+            vp.modo_pago AS modo_pago,
             vp.total AS total,
             op.cantidad, 
             sp.nombre AS producto_nombre, 
@@ -34,7 +35,8 @@ async function generarExcelGananciasDelDia(fecha) {
         { header: 'Producto', key: 'producto_nombre', width: 25 },
         { header: 'Cantidad', key: 'cantidad', width: 10 },
         { header: 'Precio Unitario', key: 'producto_precio', width: 15 },
-        { header: 'Total Venta', key: 'total', width: 15 },
+        { header: 'Método de Pago', key: 'modo_pago', width: 15 },
+        { header: 'Total Venta', key: 'total', width: 15 }
     ];
 
     let totalGanancias = 0;
@@ -46,7 +48,8 @@ async function generarExcelGananciasDelDia(fecha) {
             producto_nombre: venta.producto_nombre,
             cantidad: venta.cantidad,
             producto_precio: venta.producto_precio,
-            total: venta.total,
+            modo_pago: venta.modo_pago,
+            total: venta.total
         });
         totalGanancias += venta.total;
     });
@@ -137,7 +140,8 @@ async function obtenerVentasPorFecha(fecha) {
             vp.id_orden AS id, 
             vp.nombre_cliente AS cliente, 
             vp.direccion, 
-            vp.telefono, 
+            vp.telefono,
+            vp.modo_pago,
             vp.total,
             o.cantidad AS cantidad,
             p.nombre AS producto_nombre,
@@ -153,6 +157,7 @@ async function obtenerVentasPorFecha(fecha) {
         cliente: row.cliente,
         direccion: row.direccion,
         telefono: row.telefono,
+        modo_pago: row.modo_pago,
         total: row.total,
         cantidad: row.cantidad,
         producto_nombre: row.producto_nombre,
@@ -189,12 +194,14 @@ async function agregarProductoAOrden(idOrden, idProducto, cantidad) {
 // Función para registrar la venta en la tabla `venta_producto`
 async function crearVentaProducto({ idOrden, cliente, telefono, direccion, metodoPago, total }) {
     const conn = await getConnection();
-    const fecha = new Date(); // Asumimos que la fecha es la fecha actual
+    //const fecha = new Date(); // Asumimos que la fecha es la fecha actual
 
-    await conn.query(
-        'INSERT INTO venta_producto (id_orden, nombre_cliente, telefono, direccion, modo_pago, total, fecha) VALUES (?, ?, ?, ?, ?, ?)',
-        [idOrden, cliente, telefono, direccion, metodoPago, total, fecha]
-    );
+    const sql = `
+    INSERT INTO venta_producto (id_orden, nombre_cliente, telefono, direccion, modo_pago, total, fecha) 
+    VALUES (?, ?, ?, ?, ?, ?, NOW())
+    `;
+await conn.query(sql, [idOrden, cliente, telefono, direccion, metodoPago, total]);
+
 }
 
 

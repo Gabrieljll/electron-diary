@@ -377,6 +377,7 @@ async function cargarVentasPorFecha(fecha = null) {
             <strong>Cliente:</strong> ${venta.cliente} <br>
             <strong>Dirección:</strong> ${venta.direccion} <br>
             <strong>Teléfono:</strong> ${venta.telefono} <br>
+            <strong>Pagado con:</strong> ${venta.modo_pago} <br>
             <strong>Total:</strong> $${venta.total.toFixed(2)}
             <button class="btn btn-link btn-sm mt-1 btn-verDetalle" onclick="toggleDetalleVenta(${venta.id})">Ver Detalle</button>
             <div id="detalleVenta${venta.id}" class="detalle-venta mt-2" style="display: none;">
