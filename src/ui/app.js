@@ -370,6 +370,7 @@ async function cargarVentasPorFecha(fecha = null) {
     listaVentas.innerHTML = '';
 
     Object.values(ventasAgrupadas).forEach(venta => {
+        console.log(venta)
         const ventaItem = document.createElement('li');
         ventaItem.classList.add('list-group-item');
         
