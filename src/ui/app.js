@@ -37,6 +37,19 @@ async function solicitarContrasena() {
     return password === CONTRASENA;
 }
 
+
+async function descargarExcelComprasRealizadas(){
+    try {
+        const filePath = await ipcRenderer.invoke('descargar-compras-realizadas');
+        const link = document.createElement('a');
+        link.href = `file://${filePath}`;
+        link.download = `compras_realizadas_clientes.xlsx`;
+        link.click();
+    } catch (error) {
+        console.error("Error al descargar el archivo:", error);
+    } 
+}
+
 async function descargarGananciasDelDia() {
     const tieneAcceso = await solicitarContrasena();
     if (!tieneAcceso) {
@@ -62,14 +75,47 @@ async function descargarGananciasDelDia() {
 }
 
 async function cargarProductos() {
-    const productos = await main.getProductos(); // Llama a la función que obtiene los productos desde la base de datos
-    const selectProducto = document.getElementById('selectProducto');
-    
-    // Cargar opciones de productos
-    selectProducto.innerHTML = productos.map(p => `<option value="${p.id}" data-stock="${p.cantidad_disponible}" data-precio="${p.precio}">${p.nombre}</option>`).join('');
+    const productos = await main.getProductos();
+    productos.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    const inputProducto = document.getElementById('inputProducto');
+    const dropdownProductos = document.getElementById('dropdownProductos');
+
+    // Función para mostrar y filtrar los productos
+    inputProducto.addEventListener('input', () => {
+        const searchTerm = inputProducto.value.toLowerCase();
+        const filteredProductos = productos.filter(p => p.nombre.toLowerCase().includes(searchTerm));
+        
+        dropdownProductos.innerHTML = filteredProductos.map(p => `
+            <li><a href="#" class="dropdown-item" data-id="${p.id}" data-stock="${p.cantidad_disponible}" data-precio="${p.precio}">
+                ${p.nombre}
+            </a></li>
+        `).join('');
+
+        dropdownProductos.style.display = filteredProductos.length ? 'block' : 'none';
+    });
+
+    // Selección de producto al hacer clic en una opción
+    dropdownProductos.addEventListener('click', (event) => {
+        const selectedProduct = event.target.closest('.dropdown-item');
+        if (selectedProduct) {
+            inputProducto.value = selectedProduct.textContent;
+            inputProducto.dataset.productId = selectedProduct.getAttribute('data-id');
+            inputProducto.dataset.stock = selectedProduct.getAttribute('data-stock');
+            inputProducto.dataset.precio = selectedProduct.getAttribute('data-precio');
+            dropdownProductos.style.display = 'none';
+        }
+    });
+
+    // Cierra el dropdown si el usuario hace clic fuera de él
+    document.addEventListener('click', (event) => {
+        if (!dropdownProductos.contains(event.target) && event.target !== inputProducto) {
+            dropdownProductos.style.display = 'none';
+        }
+    });
 }
 
-document.getElementById('selectProducto').addEventListener('change', validarStock);
+//document.getElementById('selectProducto').addEventListener('change', validarStock);
 document.getElementById('cantidadProducto').addEventListener('input', validarStock);
 
 function validarStock() {
@@ -98,29 +144,38 @@ async function obtenerStockActualizado(idProducto) {
 }
 
 async function agregarProductoVenta() {
-    await actualizarProductos()
-    const selectProducto = document.getElementById('selectProducto');
+    // Referencias a elementos correctos en tu estructura actual
+    const inputProducto = document.getElementById('inputProducto');
     const inputCantidad = document.getElementById('cantidadProducto');
     const agregarBtn = document.querySelector('button[onclick="agregarProductoVenta()"]');
 
-    const idProducto = selectProducto.value;
-    const nombreProducto = selectProducto.options[selectProducto.selectedIndex].text;
-    const precioProducto = parseFloat(selectProducto.options[selectProducto.selectedIndex].getAttribute('data-precio'));
-    const cantidad = parseInt(inputCantidad.value);
+    // Obtener datos del producto seleccionado desde los atributos del input
+    const idProducto = inputProducto.dataset.productId; // ID del producto seleccionado
+    const nombreProducto = inputProducto.value; // Nombre del producto
+    const precioProducto = parseFloat(inputProducto.dataset.precio); // Precio del producto
+    const cantidad = parseInt(inputCantidad.value, 10); // Cantidad ingresada
 
+    // Verificar que el producto haya sido seleccionado y los datos sean válidos
+    if (!idProducto || !nombreProducto) {
+        Swal.fire('Error', 'Selecciona un producto válido del dropdown.', 'error');
+        return;
+    }
 
-    // Deshabilitar el botón mientras se obtiene el stock más reciente
+    if (isNaN(cantidad) || cantidad <= 0) {
+        Swal.fire('Error', 'Ingresa una cantidad válida.', 'error');
+        return;
+    }
+
+    // Deshabilitar el botón mientras se valida el stock
     agregarBtn.disabled = true;
 
-    // Obtener el stock actualizado antes de proceder
+    // Obtener el stock más reciente
     const stockDisponible = await obtenerStockActualizado(idProducto);
-    selectProducto.options[selectProducto.selectedIndex].setAttribute('data-stock', stockDisponible); // Actualizar el atributo de stock en la opción
 
-
-    // Validar que la cantidad sea válida
-    if (cantidad <= 0 || isNaN(cantidad)) {
-        Swal.fire('Error', 'Ingresa una cantidad válida.', 'error');
-        agregarBtn.disabled = false; // Habilitar el botón de nuevo
+    // Validar stock
+    if (cantidad > stockDisponible) {
+        Swal.fire('Stock insuficiente', `No hay suficiente stock para "${nombreProducto}". Quedan ${stockDisponible} unidades.`, 'warning');
+        agregarBtn.disabled = false;
         return;
     }
 
@@ -128,34 +183,40 @@ async function agregarProductoVenta() {
     const productoExistente = productosSeleccionados.find(p => p.id === idProducto);
 
     if (productoExistente) {
-        // Si el producto ya está en la lista, calcula la cantidad total con la nueva
+        // Si el producto ya está en la lista, suma la cantidad nueva
         const nuevaCantidadTotal = productoExistente.cantidad + cantidad;
 
         if (nuevaCantidadTotal > stockDisponible) {
             Swal.fire('Stock insuficiente', `No hay suficiente stock para "${nombreProducto}". Quedan ${stockDisponible - productoExistente.cantidad} unidades adicionales disponibles.`, 'warning');
-            agregarBtn.disabled = false; // Habilitar el botón de nuevo
+            agregarBtn.disabled = false;
             return;
         }
 
-        // Si hay suficiente stock, incrementa la cantidad del producto existente
         productoExistente.cantidad = nuevaCantidadTotal;
-        await actualizarProductos()
     } else {
-        // Si el producto no está en la lista, valida el stock y agrégalo
-        if (cantidad > stockDisponible) {
-            Swal.fire('Stock insuficiente', `No hay suficiente stock para "${nombreProducto}". Quedan ${stockDisponible} unidades.`, 'warning');
-            agregarBtn.disabled = false; // Habilitar el botón de nuevo
-            return;
-        }
-        productosSeleccionados.push({ id: idProducto, nombre: nombreProducto, cantidad, precio: precioProducto });
+        // Si no está en la lista, agregar el producto
+        productosSeleccionados.push({
+            id: idProducto,
+            nombre: nombreProducto,
+            cantidad,
+            precio: precioProducto
+        });
     }
 
-    // Actualizar el resumen de venta y limpiar el campo de cantidad
-    actualizarResumenVenta();
-    
+    // Limpieza de campos
+    inputProducto.value = '';
+    inputProducto.dataset.productId = '';
+    inputProducto.dataset.stock = '';
+    inputProducto.dataset.precio = '';
     inputCantidad.value = '';
+
+    // Habilitar el botón nuevamente
     agregarBtn.disabled = false;
+
+    // Actualizar el resumen de productos
+    actualizarResumenVenta();
 }
+
 
 function actualizarResumenVenta() {
     const listaResumen = document.getElementById('listaResumen');
@@ -294,50 +355,6 @@ async function mostrarVista(vista) {
 }
 
 
-/* async function agregarNuevaVenta() {
-    const cliente = document.getElementById('nombreCliente').value;
-    const resumenProductos = document.getElementById('listaResumen'); // Contenedor del resumen de productos
-    const productosSeleccionados = [];
-
-    // Comprobar que el resumen tenga productos listados
-    if (!cliente || resumenProductos.children.length === 0) {
-        Swal.fire('Error', 'Por favor, completa todos los campos requeridos y asegúrate de seleccionar al menos un producto.', 'error');
-        return;
-    }
-
-    // Obtener productos y cantidades desde el resumen
-    resumenProductos.querySelectorAll('.resumen-item').forEach(item => {
-        const idProducto = item.dataset.productoId;
-        const cantidad = parseInt(item.dataset.cantidad);
-
-        productosSeleccionados.push({ id: idProducto, cantidad: cantidad });
-    });
-
-    // Descontar stock y guardar la venta
-    for (const producto of productosSeleccionados) {
-        const { id, cantidad } = producto;
-
-        // Obtén el producto de la base de datos y verifica el stock
-        const productoDB = await main.getProductoById(id);
-        if (productoDB.cantidad_disponible < cantidad) {
-            Swal.fire('Error', `Stock insuficiente para el producto ${productoDB.nombre}.`, 'error');
-            return;
-        }
-
-        // Descontar cantidad y actualizar en la base de datos
-        const nuevaCantidad = productoDB.cantidad_disponible - cantidad;
-        await main.actualizarProducto(id, { cantidad_disponible: nuevaCantidad });
-    }
-
-    // Guardar información de la venta en la base de datos
-    await main.nuevaVenta({ cliente, productos: productosSeleccionados });
-    Swal.fire('Venta registrada', 'La venta se ha registrado correctamente.', 'success');
-
-    // Limpiar formulario y resumen de productos
-    document.getElementById('nombreCliente').value = '';
-    resumenProductos.innerHTML = '';
-} */
-
 
 // Al cargar la página, obtener ventas del día actual
 document.addEventListener('DOMContentLoaded', () => {
@@ -375,12 +392,23 @@ async function cargarVentasPorFecha(fecha = null) {
         ventaItem.classList.add('list-group-item');
         
         ventaItem.innerHTML = `
-            <strong>Cliente:</strong> ${venta.cliente} <br>
-            <strong>Dirección:</strong> ${venta.direccion} <br>
-            <strong>Teléfono:</strong> ${venta.telefono} <br>
-            <strong>Pagado con:</strong> ${venta.modo_pago} <br>
-            <strong>Total:</strong> $${venta.total.toFixed(2)}
-            <button class="btn btn-link btn-sm mt-1 btn-verDetalle" onclick="toggleDetalleVenta(${venta.id})">Ver Detalle</button>
+            <div class="divDetalleVentasYBotones">
+                <div style="width: 50%">
+                    <strong>Cliente:</strong> ${venta.cliente} <br>
+                    <strong>Dirección:</strong> ${venta.direccion} <br>
+                    <strong>Teléfono:</strong> ${venta.telefono} <br>
+                    <strong>Pagado con:</strong> ${venta.modo_pago} <br>
+                    <strong>Total:</strong> $${venta.total.toFixed(2)}
+                </div>
+                <div class="divBotonesDetalleVentas" style="width: 50%">
+                    <div>
+                        <button class="btn btn-danger btn-sm mt-1 btn-borrarVenta" onclick="eliminarVenta(${venta.id})">Eliminar</button>
+                    </div>
+                    <div style="margin-top: 30%;">
+                        <button class="btn btn-link btn-sm mt-1 btn-verDetalle" onclick="toggleDetalleVenta(${venta.id})">Ver Detalle</button>
+                    </div>
+                </div>
+            </div>
             <div id="detalleVenta${venta.id}" class="detalle-venta mt-2" style="display: none;">
                 <ul class="list-group list-group-flush">
                     ${venta.productos.map(producto => `
@@ -395,6 +423,34 @@ async function cargarVentasPorFecha(fecha = null) {
     });
 }
 
+async function eliminarVenta(idVenta) {
+    const confirmacion = await Swal.fire({
+        title: '¿Estás seguro?',
+        text: "Esta acción eliminará la venta permanentemente.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (!confirmacion.isConfirmed) {
+        return;
+    }
+
+    try {
+        await main.eliminarVenta(idVenta); // Método para eliminar venta en el backend
+        Swal.fire('Eliminado', 'La venta ha sido eliminada correctamente.', 'success');
+        
+        // Recargar la lista de ventas
+        const fechaSeleccionada = document.getElementById('fechaVentas').value;
+        await cargarVentasPorFecha(fechaSeleccionada);
+    } catch (error) {
+        console.error("Error al eliminar la venta:", error);
+        Swal.fire('Error', 'No se pudo eliminar la venta. Intenta nuevamente.', 'error');
+    }
+}
 // Función para mostrar/ocultar el detalle de productos de una venta
 function toggleDetalleVenta(ventaId) {
     const detalleDiv = document.getElementById(`detalleVenta${ventaId}`);

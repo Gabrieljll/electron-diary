@@ -61,7 +61,6 @@ async function generarExcelGananciasDelDia(fecha) {
     return filePath;
 }
 
-module.exports = { generarExcelGananciasDelDia };
 
 // Registrar el manejador de ipcMain en el proceso principal
 ipcMain.handle('descargar-ganancias-dia', async (event, fecha) => {
@@ -69,6 +68,49 @@ ipcMain.handle('descargar-ganancias-dia', async (event, fecha) => {
     return filePath;
 });
 
+
+async function generarExcelComprasRealizadas() {
+    const conn = await getConnection();
+    
+    // Consulta para obtener todos los registros de la tabla `compras_realizadas`
+    const [compras] = await conn.query(`
+        SELECT nombre_cliente, telefono, cantidad_compras 
+        FROM compras_realizadas
+    `);
+
+    // Verificar si `compras` es un arreglo
+    const comprasArray = Array.isArray(compras) ? compras : [compras];
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Compras Realizadas');
+
+    // Definir las columnas correspondientes a `compras_realizadas`
+    worksheet.columns = [
+        { header: 'Nombre del Cliente', key: 'nombre_cliente', width: 20 },
+        { header: 'Teléfono', key: 'telefono', width: 15 },
+        { header: 'Cantidad de Compras', key: 'cantidad_compras', width: 20 }
+    ];
+
+    // Agregar filas al archivo Excel
+    comprasArray.forEach(compra => {
+        worksheet.addRow({
+            nombre_cliente: compra.nombre_cliente,
+            telefono: compra.telefono,
+            cantidad_compras: compra.cantidad_compras
+        });
+    });
+
+    const filePath = path.join(app.getPath('desktop'), `compras_realizadas_clientes.xlsx`);
+    await workbook.xlsx.writeFile(filePath);
+    
+    return filePath;
+}
+
+// Registrar el manejador de ipcMain en el proceso principal
+ipcMain.handle('descargar-compras-realizadas', async (event) => {
+    const filePath = await generarExcelComprasRealizadas();
+    return filePath;
+});
 
 async function nuevoProducto(fichaCliente) {
     try {
@@ -248,6 +290,28 @@ async function registrarVenta({ productos, cliente, telefono, direccion, metodoP
     }
 }
 
+
+
+async function eliminarVenta(idVenta) {
+    try{
+        const conn = await getConnection();
+        await conn.query('DELETE FROM venta_producto WHERE id_orden = ?', [idVenta]);
+        await conn.query('DELETE FROM orden_producto WHERE id_orden = ?', [idVenta]);
+        await conn.query('DELETE FROM ordenes WHERE id = ?', [idVenta]);
+
+        new Notification({
+            title: 'Pombero Ventas',
+            body: 'Venta eliminada exitosamente!'
+        }).show();
+    } catch (error){
+        new Notification({
+            title: 'Pombero Stock',
+            body: 'Ocurrió un error al tratar de eliminar el registro!'
+        }).show();
+    }
+}
+
+
 let window;
 
 function createWindow() {
@@ -272,6 +336,7 @@ function createWindow() {
 
 module.exports = {
     createWindow,
+
     nuevoProducto,
     getProductos,
     borrarRegistroProducto,
@@ -283,5 +348,8 @@ module.exports = {
     crearOrden,
     crearVentaProducto,
     registrarVenta,
-    actualizarProducto
+    actualizarProducto,
+    generarExcelGananciasDelDia,
+    generarExcelComprasRealizadas,
+    eliminarVenta
 };

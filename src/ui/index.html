@@ -27,6 +27,12 @@
                     Stock
                 </button>
             </div>
+            <div class="div-botones-nav">
+                <button class="btn btn-light nav-buttons" style="font-size: 1.2rem;" onclick="descargarExcelComprasRealizadas('stock')">
+                    <img class="iconosNavegacion" src="./img/iconos/download_doc.png" alt="excel">
+                        Compras de clientes
+                </button>
+            </div>
         </nav>
     
         <!-- Vista de Ventas -->
@@ -56,14 +62,16 @@
                                     <label class="mt-2" for="productos"><h5>Productos</h5></label>
                                     <div id="productosSeleccionados">
                                         <div class="input-group mb-3">
-                                            <select id="selectProducto" class="form-control">
+                                            <!-- Cambiamos el select a un input de texto -->
+                                            <input type="text" id="inputProducto" class="form-control" placeholder="Buscar producto...">
+                                            <ul id="dropdownProductos" class="dropdown-menu" style="width: 100%; display: none; margin-top: 10%;">
                                                 <!-- Las opciones de productos se cargarán aquí dinámicamente -->
-                                            </select>
+                                            </ul>
                                             <input type="number" id="cantidadProducto" class="form-control" placeholder="Cantidad" style="max-width: 140px;">
                                         </div>
                                     </div>
                                 </div>
-    
+                                
                                 <button type="button" onclick="agregarProductoVenta()" class="btn btn-info mt-1">Agregar Producto</button>
                                 
                                 <div class="form-group">
@@ -108,7 +116,10 @@
                         <label for="fechaVentas">Seleccionar Fecha:</label>
                         <input type="date" id="fechaVentas" class="form-control" onchange="cargarVentasPorFecha()">
                     </div>
-                    <button class="btn btn-primary" style="width: 150px; height: 50px; font-size: small; letter-spacing: 1px;" onclick="descargarGananciasDelDia()">Ganancias del Día</button>
+                    <button class="btn btn-primary" style="width: 200px; height: 50px; font-size: small; letter-spacing: 1px;" onclick="descargarGananciasDelDia()">
+                        <img style="width: 30px; margin-right: 5px;" src="./img/iconos/download_white.png" alt="excel">
+                        Ganancias del Día
+                    </button>
                 </div>
                 
                 <!-- Contenedor de la lista de ventas realizadas -->
