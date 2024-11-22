@@ -3,6 +3,15 @@
     src: url("./fonts/AntonSC-Regular.ttf");
   }
 
+  @font-face {
+    font-family: "ceremony";
+    src: url("./fonts/Lora-Italic-VariableFont_wght.ttf");
+  }
+
+  .firma{
+    font-family: "ceremony";
+    font-weight: bold;
+  }
   html{    
     overflow: auto;
     
