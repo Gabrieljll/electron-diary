@@ -75,62 +75,193 @@ async function descargarGananciasDelDia() {
 }
 
 async function cargarProductos() {
-    const productos = await main.getProductos();
-    productos.sort((a, b) => a.nombre.localeCompare(b.nombre));
-
     const inputProducto = document.getElementById('inputProducto');
     const dropdownProductos = document.getElementById('dropdownProductos');
+    const tipoVentaSelect = document.getElementById('tipoVenta');
+    const productosSeleccionadosContainer = document.getElementById('productosSeleccionados');
 
-    // Función para mostrar y filtrar los productos
+    // Validar que los elementos DOM necesarios existan
+    if (!inputProducto || !dropdownProductos || !tipoVentaSelect || !productosSeleccionadosContainer) {
+        console.error('Faltan elementos necesarios en el DOM. Verifica el HTML.');
+        return;
+    }
+
+    // Obtener productos y validar datos
+    let productos = [];
+    try {
+        productos = await main.getProductos();
+        if (!Array.isArray(productos)) {
+            throw new Error('Los productos obtenidos no son válidos.');
+        }
+    } catch (error) {
+        console.error('Error al cargar los productos:', error.message);
+        return;
+    }
+
+    productos.forEach(producto => {
+        if (!producto.nombre || !producto.id || !producto.precio || !producto.precio_delivery) {
+            console.warn('Faltan datos en el producto:', producto);
+        }
+    });
+
+    // Ordenar productos por nombre
+    productos.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    // Mostrar y filtrar productos en el dropdown
     inputProducto.addEventListener('input', () => {
         const searchTerm = inputProducto.value.toLowerCase();
         const filteredProductos = productos.filter(p => p.nombre.toLowerCase().includes(searchTerm));
-        
+
         dropdownProductos.innerHTML = filteredProductos.map(p => `
-            <li><a href="#" class="dropdown-item" data-id="${p.id}" data-stock="${p.cantidad_disponible}" data-precio="${p.precio}">
-                ${p.nombre}
-            </a></li>
+            <li>
+                <a href="#" 
+                   class="dropdown-item" 
+                   data-id="${p.id}" 
+                   data-stock="${p.cantidad_disponible}" 
+                   data-precio-local="${p.precio}" 
+                   data-precio-delivery="${p.precio_delivery}">
+                   ${p.nombre}
+                </a>
+            </li>
         `).join('');
 
         dropdownProductos.style.display = filteredProductos.length ? 'block' : 'none';
     });
 
-    // Selección de producto al hacer clic en una opción
+    // Manejar la selección de productos desde el dropdown
     dropdownProductos.addEventListener('click', (event) => {
         const selectedProduct = event.target.closest('.dropdown-item');
-        if (selectedProduct) {
-            inputProducto.value = selectedProduct.textContent;
-            inputProducto.dataset.productId = selectedProduct.getAttribute('data-id');
-            inputProducto.dataset.stock = selectedProduct.getAttribute('data-stock');
-            inputProducto.dataset.precio = selectedProduct.getAttribute('data-precio');
-            dropdownProductos.style.display = 'none';
-        }
+        if (!selectedProduct) return;
+
+        const idProducto = selectedProduct.getAttribute('data-id');
+        const stockProducto = selectedProduct.getAttribute('data-stock');
+        const precioLocal = selectedProduct.getAttribute('data-precio-local');
+        const precioDelivery = selectedProduct.getAttribute('data-precio-delivery');
+        const nombreProducto = selectedProduct.textContent;
+
+        // Configuramos el input de producto con los datos seleccionados
+        inputProducto.value = nombreProducto;
+        inputProducto.dataset.productId = idProducto;
+        inputProducto.dataset.stock = stockProducto;
+
+        // Ajustamos el precio según el tipo de venta
+        const tipoVenta = tipoVentaSelect.value;
+        const precioSeleccionado = tipoVenta === 'delivery' ? precioDelivery : precioLocal;
+        inputProducto.dataset.precio = precioSeleccionado;
+
+        // Ocultamos el dropdown después de la selección
+        dropdownProductos.style.display = 'none';
+
+        // Actualizar el precio en el resumen de productos seleccionados
+        actualizarPrecioSeleccionado(idProducto, precioSeleccionado);
     });
 
-    // Cierra el dropdown si el usuario hace clic fuera de él
+    // Cerrar el dropdown al hacer clic fuera de él
     document.addEventListener('click', (event) => {
         if (!dropdownProductos.contains(event.target) && event.target !== inputProducto) {
             dropdownProductos.style.display = 'none';
         }
     });
+
+    // Cambiar precios según el tipo de venta seleccionado
+    tipoVentaSelect.addEventListener('change', () => {
+        const tipoVenta = tipoVentaSelect.value;
+        const precioTipo = tipoVenta === 'delivery' ? 'data-precio-delivery' : 'data-precio-local';
+
+        // Actualizar precios de los productos en el dropdown
+        const productosEnDropdown = dropdownProductos.querySelectorAll('.dropdown-item');
+        productosEnDropdown.forEach(producto => {
+            const nuevoPrecio = producto.getAttribute(precioTipo);
+            if (nuevoPrecio) {
+                const precioElemento = producto.querySelector('.precioProducto');
+                if (precioElemento) {
+                    precioElemento.textContent = `$${nuevoPrecio}`;
+                }
+            }
+        });
+
+        // También actualizar los productos seleccionados en la lista de productos
+        actualizarPreciosSeleccionados();
+    });
+
+    console.log('Productos cargados y configurados correctamente.');
 }
 
-//document.getElementById('selectProducto').addEventListener('change', validarStock);
+
+// Función para actualizar el precio de un producto específico en los productos seleccionados
+function actualizarPrecioSeleccionado(idProducto, precioSeleccionado) {
+    const productosSeleccionados = document.querySelectorAll('.producto-seleccionado');
+    productosSeleccionados.forEach(producto => {
+        if (producto.getAttribute('data-id') === idProducto) {
+            const precioElemento = producto.querySelector('.precioProducto');
+            if (precioElemento) {
+                precioElemento.textContent = `$${precioSeleccionado}`;
+            }
+        }
+    });
+}
+
+// Función para actualizar los precios de todos los productos seleccionados
+function actualizarPreciosSeleccionados() {
+    const tipoVentaSelect = document.getElementById('tipoVenta');
+    const tipoVenta = tipoVentaSelect.value;
+    const precioTipo = tipoVenta === 'delivery' ? 'data-precio-delivery' : 'data-precio-local';
+
+    const productosSeleccionados = document.querySelectorAll('.producto-seleccionado');
+    productosSeleccionados.forEach(producto => {
+        const nuevoPrecio = producto.getAttribute(precioTipo);
+        if (nuevoPrecio) {
+            const precioElemento = producto.querySelector('.precioProducto');
+            if (precioElemento) {
+                precioElemento.textContent = `$${nuevoPrecio}`;
+            }
+        }
+    });
+}
+
+
+//document.getElementById('inputProducto').addEventListener('change', validarStock);
 document.getElementById('cantidadProducto').addEventListener('input', validarStock);
 
 function validarStock() {
-    const selectProducto = document.getElementById('selectProducto');
+    const inputProducto = document.getElementById('inputProducto');
     const inputCantidad = document.getElementById('cantidadProducto');
+    
+    console.log("lala")
+    console.log(inputProducto)
 
-    const selectedOption = selectProducto.options[selectProducto.selectedIndex];
-    const stockDisponible = parseInt(selectedOption.getAttribute('data-stock'));
+    // Verificar si los elementos existen
+    if (!inputProducto) {
+        console.error('No se encontró el elemento inputProducto en el DOM.');
+        return;
+    }
+    if (!inputCantidad) {
+        console.error('No se encontró el elemento cantidadProducto en el DOM.');
+        return;
+    }
+
+    // Obtener el ID del producto y el precio desde los atributos del input
+    const idProducto = inputProducto.dataset.productId;
+    const nombreProducto = inputProducto.value; // El texto que se muestra en el input
+    const stockDisponible = parseInt(inputProducto.dataset.stock); // Stock disponible desde el dataset
     const cantidadSeleccionada = parseInt(inputCantidad.value);
 
+    if (!idProducto || !nombreProducto) {
+        console.error('No se seleccionó un producto válido.');
+        return;
+    }
+
+    // Validar la cantidad seleccionada
     if (cantidadSeleccionada > stockDisponible) {
-        Swal.fire('Stock insuficiente', `No hay suficiente stock para "${selectedOption.text}". Quedan ${stockDisponible} unidades.`, 'warning');
-        inputCantidad.value = stockDisponible; // Ajustar a la cantidad máxima
+        Swal.fire(
+            'Stock insuficiente',
+            `No hay suficiente stock para "${nombreProducto}". Quedan ${stockDisponible} unidades.`,
+            'warning'
+        );
+        inputCantidad.value = stockDisponible; // Ajustar la cantidad al stock disponible
     }
 }
+
 
 cargarProductos();
 
@@ -148,11 +279,14 @@ async function agregarProductoVenta() {
     const inputProducto = document.getElementById('inputProducto');
     const inputCantidad = document.getElementById('cantidadProducto');
     const agregarBtn = document.querySelector('button[onclick="agregarProductoVenta()"]');
+    console.log("agregando producto");
+    console.log(inputProducto.dataset);
 
     // Obtener datos del producto seleccionado desde los atributos del input
     const idProducto = inputProducto.dataset.productId; // ID del producto seleccionado
     const nombreProducto = inputProducto.value; // Nombre del producto
-    const precioProducto = parseFloat(inputProducto.dataset.precio); // Precio del producto
+    const precioProducto = parseFloat(inputProducto.dataset.precio); // Precio del producto para "local"
+    const precioProductoDelivery = parseFloat(inputProducto.dataset.precioDelivery); // Precio del producto para "delivery"
     const cantidad = parseInt(inputCantidad.value, 10); // Cantidad ingresada
 
     // Verificar que el producto haya sido seleccionado y los datos sean válidos
@@ -165,6 +299,12 @@ async function agregarProductoVenta() {
         Swal.fire('Error', 'Ingresa una cantidad válida.', 'error');
         return;
     }
+
+    // Obtener el tipo de venta seleccionado
+    const tipoVenta = document.getElementById('tipoVenta').value;
+
+    // Establecer el precio según el tipo de venta
+    //const precioProducto = tipoVenta === 'delivery' ? precioProductoDelivery : precioProductoLocal;
 
     // Deshabilitar el botón mientras se valida el stock
     agregarBtn.disabled = true;
@@ -194,7 +334,7 @@ async function agregarProductoVenta() {
 
         productoExistente.cantidad = nuevaCantidadTotal;
     } else {
-        // Si no está en la lista, agregar el producto
+        // Si no está en la lista, agregar el producto con el precio ajustado
         productosSeleccionados.push({
             id: idProducto,
             nombre: nombreProducto,
@@ -207,7 +347,8 @@ async function agregarProductoVenta() {
     inputProducto.value = '';
     inputProducto.dataset.productId = '';
     inputProducto.dataset.stock = '';
-    inputProducto.dataset.precio = '';
+    inputProducto.dataset.precioLocal = '';
+    inputProducto.dataset.precioDelivery = '';
     inputCantidad.value = '';
 
     // Habilitar el botón nuevamente
@@ -218,27 +359,84 @@ async function agregarProductoVenta() {
 }
 
 
+
 function actualizarResumenVenta() {
     const listaResumen = document.getElementById('listaResumen');
-    listaResumen.innerHTML = '';
+    listaResumen.innerHTML = ''; // Limpiar el resumen actual
 
     productosSeleccionados.forEach((producto, index) => {
-        const item = document.createElement('li');
-        item.classList.add('list-group-item', 'd-flex', 'justify-content-between', 'align-items-center');
-        
-        item.textContent = `${producto.cantidad} - ${producto.nombre} ($${producto.precio.toFixed(2)} c/u)`;
-        
+        // Crear un nuevo elemento de lista para cada producto
+        const productoElemento = document.createElement('li');
+        productoElemento.classList.add('list-group-item');
+
+        // Crear el contenido del producto
+        productoElemento.innerHTML = `
+            <span>${producto.nombre} - ${producto.cantidad} x $${producto.precio}</span>
+        `;
+
         const botonEliminar = document.createElement('button');
         botonEliminar.classList.add('btn', 'btn-light', 'btn-md', 'm-2', 'quitarProducto');
         botonEliminar.innerHTML = 'x';
         botonEliminar.onclick = () => quitarProducto(index);
 
-        item.appendChild(botonEliminar);
-        listaResumen.appendChild(item);
+        productoElemento.appendChild(botonEliminar);
+        // Agregar el nuevo producto a la lista
+        listaResumen.appendChild(productoElemento);
     });
 
-    actualizarTotalConEnvio();
+    // Actualizar el total (si es necesario)
+    const total = productosSeleccionados.reduce((acc, producto) => acc + (producto.precio * producto.cantidad), 0);
+    document.getElementById('totalConEnvio').textContent = `$${total.toFixed(2)}`;
 }
+
+
+
+
+
+// Función para actualizar el tipo de venta
+function actualizarTipoVenta() {
+    const tipoVenta = document.getElementById("tipoVenta").value;
+    const costoEnvio = document.getElementById("costoEnvio");
+    const productos = document.getElementById("productosSeleccionados").children;
+
+    if (tipoVenta === "local") {
+        // Desactivar y poner en 0 el campo de costo de envío
+        costoEnvio.disabled = true;
+        costoEnvio.value = 0;
+
+        // Cambiar el precio de los productos a precio_local
+        actualizarPreciosProductos("precio");
+    } else if (tipoVenta === "delivery") {
+        // Activar el campo de costo de envío
+        costoEnvio.disabled = false;
+
+        // Cambiar el precio de los productos a precio_delivery
+        actualizarPreciosProductos("precio_delivery");
+    }
+}
+
+async function actualizarPreciosProductos(precioTipo) {
+    const productosSeleccionados = document.getElementById("productosSeleccionados").children;
+
+    Array.from(productosSeleccionados).forEach(async producto => {
+        const productoId = producto.getAttribute("data-id");
+        // Aquí debes hacer una consulta para obtener el precio de cada producto (local o delivery)
+        // Vamos a simularlo con una llamada AJAX o alguna lógica similar:
+        await main.getProductoById(productoId).then(productoData => {
+            console.log(productoData);
+            const precio = productoData[precioTipo];  // Obtener el precio adecuado
+
+            // Verificar si el elemento con la clase .precioProducto existe
+            const precioElemento = producto.querySelector(".precioProducto");
+            if (precioElemento) {
+                precioElemento.textContent = "$" + precio;
+            } else {
+                console.warn("No se encontró el elemento con la clase .precioProducto para el producto con ID:", productoId);
+            }
+        });
+    });
+}
+
 
 function quitarProducto(index) {
     productosSeleccionados.splice(index, 1);
@@ -256,6 +454,12 @@ function actualizarTotalConEnvio() {
 
     document.getElementById('totalConEnvio').textContent = `$${totalConEnvio.toFixed(2)}`;
 }
+
+// Llamar a la función cuando se carga la página
+document.addEventListener("DOMContentLoaded", () => {
+    // Llamar a la función para que se aplique la lógica inicial
+    actualizarTipoVenta();
+});
 
 async function registrarNuevaVenta() {
     const cliente = document.getElementById('nombreCliente').value;
@@ -475,6 +679,10 @@ function abrirModalAgregarProducto() {
                     <input type="number" id="precio" placeholder="Precio" class="form-control" required>
                 </div>
                 <div class="form-group">
+                    <label for="precioDelivery">Precio Delivery</label>
+                    <input type="number" id="precioDelivery" class="form-control" required>
+                </div>
+                <div class="form-group">
                     <label class="mt-2" for="descripcion"><h5>Descripción</h5></label>
                     <input type="text" id="descripcion" placeholder="Descripción" class="form-control">
                 </div>
@@ -496,11 +704,12 @@ function abrirModalAgregarProducto() {
 async function agregarNuevoProducto() {
     const nombreProducto = document.getElementById('nombre').value;
     const precio = document.getElementById('precio').value;
+    const precioDelivery = document.getElementById('precioDelivery').value;
     const descripcion = document.getElementById('descripcion').value;
     const cantidad = document.getElementById('cantidad').value;
 
     if (nombreProducto && precio && cantidad) {
-        const nuevoProducto = { nombre: nombreProducto, precio: precio, descripcion: descripcion, cantidad_disponible: cantidad };
+        const nuevoProducto = { nombre: nombreProducto, precio: precio, precio_delivery: precioDelivery, descripcion: descripcion, cantidad_disponible: cantidad };
         await main.nuevoProducto(nuevoProducto);
         Swal.close();
         await actualizarProductos();
@@ -537,6 +746,7 @@ function renderListaProductos(productos) {
                     <th>Id</th>
                     <th>Nombre</th>
                     <th>Precio</th>
+                    <th>Precio Delivery</th>
                     <th>Descripción</th>
                     <th>Cantidad Disponible</th>
                     <th>Acciones</th>
@@ -548,6 +758,7 @@ function renderListaProductos(productos) {
                         <td>${p.id}</td>
                         <td>${p.nombre}</td>
                         <td>${p.precio}</td>
+                        <td>${p.precio_delivery}</td>
                         <td>${p.descripcion}</td>
                         <td>${p.cantidad_disponible}</td>
                         <td>
@@ -598,6 +809,10 @@ async function editarProducto(idProducto){
                 <input type="number" id="precio_edit" placeholder="Precio" class="form-control" value="${productoDevuelto.precio}" autofocus required="true">
             </div>
             <div class="form-group">
+                <label class="mt-2" for=""><h5>Precio Delivery</h5></label>
+                <input type="number" id="precio_delivery_edit" placeholder="Precio" class="form-control" value="${productoDevuelto.precio_delivery}" autofocus required="true">
+            </div>
+            <div class="form-group">
                 <label class="mt-2" for=""><h5>descripcion</h5></label>
                 <input type="text" id="descripcion_edit" placeholder="Descripción" class="form-control" value="${productoDevuelto.descripcion}" autofocus required="false">
             </div>
@@ -623,12 +838,14 @@ async function editarProducto(idProducto){
 async function fichaClienteEditada(idProductoEditado) {
     const nombreProducto_edit = document.getElementById('nombreProducto_edit').value;
     const precio_edit = document.getElementById('precio_edit').value;
+    const precio_delivery_edit = document.getElementById('precio_delivery_edit').value;
     const descripcion_edit = document.getElementById('descripcion_edit').value;
     const cantidad_edit = document.getElementById('cantidad_edit').value;
 
     const productoEditado = {
         nombre: nombreProducto_edit,
         precio: precio_edit,
+        precio_delivery: precio_delivery_edit,
         descripcion: descripcion_edit,
         cantidad_disponible: cantidad_edit
     };

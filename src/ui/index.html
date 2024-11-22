@@ -57,6 +57,15 @@
                                     <label class="mt-2" for="direccion"><h5>Dirección</h5></label>
                                     <input type="text" id="direccion" placeholder="Dirección" class="form-control">
                                 </div>
+
+                                <div class="form-group">
+                                    <label class="mt-2" for="tipoVenta"><h5>Tipo de Venta</h5></label>
+                                    <select id="tipoVenta" class="form-control" onchange="actualizarTipoVenta()">
+                                        <option value="local">Local</option>
+                                        <option value="delivery">Delivery</option>
+                                    </select>
+                                </div>
+
                                 <!-- Campo de productos con cantidad seleccionable en la misma línea -->
                                 <div class="form-group">
                                     <label class="mt-2" for="productos"><h5>Productos</h5></label>
@@ -73,7 +82,7 @@
                                 </div>
                                 
                                 <button type="button" onclick="agregarProductoVenta()" class="btn btn-info mt-1">Agregar Producto</button>
-                                
+
                                 <div class="form-group">
                                     <label class="mt-2" for="costoEnvio"><h5>Costo del envío</h5></label>
                                     <input type="number" id="costoEnvio" placeholder="Costo del envío" class="form-control" onchange="actualizarTotalConEnvio()">

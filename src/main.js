@@ -140,18 +140,18 @@ async function borrarRegistroProducto(id) {
 async function getProductoById(id) {
     const conn = await getConnection();
     const [result] = await conn.query('SELECT * FROM stock_productos WHERE id = ?', [id]);
-    return result[0];
+    return result;
 }
 
 async function actualizarProducto(id, producto) {
     const conn = await getConnection();
-    const { nombre, precio, descripcion, cantidad_disponible } = producto;
+    const { nombre, precio, precio_delivery, descripcion, cantidad_disponible } = producto;
     
     await conn.query(
         `UPDATE stock_productos 
-         SET nombre = ?, precio = ?, descripcion = ?, cantidad_disponible = ? 
+         SET nombre = ?, precio = ?, precio_delivery = ?, descripcion = ?, cantidad_disponible = ? 
          WHERE id = ?`,
-        [nombre, precio, descripcion, cantidad_disponible, id]
+        [nombre, precio, precio_delivery, descripcion, cantidad_disponible, id]
     );
 }
 
