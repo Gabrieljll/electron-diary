@@ -183,7 +183,8 @@ async function obtenerVentasPorFecha(fecha) {
             vp.total,
             o.cantidad AS cantidad,
             p.nombre AS producto_nombre,
-            p.precio AS producto_precio
+            p.precio AS producto_precio,
+            TIME(vp.fecha) AS horario
         FROM venta_producto vp
         LEFT JOIN orden_producto o ON vp.id_orden = o.id_orden
         LEFT JOIN stock_productos p ON o.id_producto = p.id
@@ -200,7 +201,8 @@ async function obtenerVentasPorFecha(fecha) {
         total: row.total,
         cantidad: row.cantidad,
         producto_nombre: row.producto_nombre,
-        producto_precio: row.producto_precio
+        producto_precio: row.producto_precio,
+        horario: row.horario
     }));
 }
 

@@ -565,13 +565,6 @@ async function mostrarVista(vista) {
 
 
 
-// Al cargar la página, obtener ventas del día actual
-document.addEventListener('DOMContentLoaded', () => {
-    const hoy = new Date().toISOString().split('T')[0];
-    document.getElementById('fechaVentas').value = hoy;
-    cargarVentasPorFecha(hoy);
-});
-
 // Función para cargar las ventas según la fecha seleccionada
 async function cargarVentasPorFecha(fecha = null) {
     const fechaSeleccionada = fecha || document.getElementById('fechaVentas').value;
@@ -596,13 +589,15 @@ async function cargarVentasPorFecha(fecha = null) {
     listaVentas.innerHTML = '';
 
     Object.values(ventasAgrupadas).forEach(venta => {
-        console.log(venta)
+        const horaYMinutos = venta.horario.split(':').slice(0, 2).join(':'); // Extrae solo HH:MM
+
         const ventaItem = document.createElement('li');
         ventaItem.classList.add('list-group-item');
         
         ventaItem.innerHTML = `
             <div class="divDetalleVentasYBotones">
                 <div style="width: 50%">
+                    <strong>Hora:</strong> ${horaYMinutos} <br>
                     <strong>Cliente:</strong> ${venta.cliente} <br>
                     <strong>Dirección:</strong> ${venta.direccion} <br>
                     <strong>Teléfono:</strong> ${venta.telefono} <br>
@@ -631,6 +626,7 @@ async function cargarVentasPorFecha(fecha = null) {
         listaVentas.appendChild(ventaItem);
     });
 }
+
 
 async function eliminarVenta(idVenta) {
     const confirmacion = await Swal.fire({
