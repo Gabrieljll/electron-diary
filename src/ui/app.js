@@ -397,18 +397,23 @@ function actualizarResumenVenta() {
 function actualizarTipoVenta() {
     const tipoVenta = document.getElementById("tipoVenta").value;
     const costoEnvio = document.getElementById("costoEnvio");
+    const direccion = document.getElementById("direccion")
     const productos = document.getElementById("productosSeleccionados").children;
 
     if (tipoVenta === "local") {
         // Desactivar y poner en 0 el campo de costo de envío
         costoEnvio.disabled = true;
         costoEnvio.value = 0;
-
+        direccion.value = "local"
+        direccion.disabled = true
         // Cambiar el precio de los productos a precio_local
         actualizarPreciosProductos("precio");
     } else if (tipoVenta === "delivery") {
         // Activar el campo de costo de envío
+        costoEnvio.value = ""
         costoEnvio.disabled = false;
+        direccion.value = ""
+        direccion.disabled = false
 
         // Cambiar el precio de los productos a precio_delivery
         actualizarPreciosProductos("precio_delivery");
@@ -679,7 +684,7 @@ function abrirModalAgregarProducto() {
                     <input type="number" id="precio" placeholder="Precio" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label for="precioDelivery">Precio Delivery</label>
+                    <label for="precioDelivery"><h5>Precio Delivery</h5></label>
                     <input type="number" id="precioDelivery" class="form-control" required>
                 </div>
                 <div class="form-group">
