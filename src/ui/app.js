@@ -466,7 +466,54 @@ document.addEventListener("DOMContentLoaded", () => {
     actualizarTipoVenta();
 });
 
+
+document.addEventListener('DOMContentLoaded', () => {
+    const fechaVentaInput = document.getElementById('fechaVenta');
+    if (fechaVentaInput) {
+        const hoy = new Date().toISOString().split('T')[0];
+        fechaVentaInput.value = hoy;
+    }
+
+    const fechaVentasInput = document.getElementById('fechaVentas');
+    if (fechaVentasInput) {
+        const hoy = new Date().toISOString().split('T')[0];
+        fechaVentasInput.value = hoy;
+    }
+});
+
+
 async function registrarNuevaVenta() {
+    const fechaVentaInput = document.getElementById('fechaVenta');
+    const fechaVentaSeleccionada = fechaVentaInput.value; // Fecha seleccionada por el usuario
+    const fechaActual = new Date(); // Fecha actual del sistema
+
+    // Obtener fecha y hora local formateada
+    const formatearFechaLocal = (fecha) => {
+        const anio = fecha.getFullYear();
+        const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+        const dia = String(fecha.getDate()).padStart(2, '0');
+        const hora = String(fecha.getHours()).padStart(2, '0');
+        const minutos = String(fecha.getMinutes()).padStart(2, '0');
+        const segundos = String(fecha.getSeconds()).padStart(2, '0');
+        return `${anio}-${mes}-${dia} ${hora}:${minutos}:${segundos}`;
+    };
+
+    let fechaFinal;
+    if (fechaVentaSeleccionada) {
+        const hoyFormateado = fechaActual.toISOString().slice(0, 10); // Formateamos 'YYYY-MM-DD'
+
+        if (fechaVentaSeleccionada === hoyFormateado) {
+            // Fecha seleccionada es hoy -> usar fecha y hora actual local
+            fechaFinal = formatearFechaLocal(fechaActual);
+        } else {
+            // Fecha seleccionada es distinta -> usar 23:59:00
+            fechaFinal = `${fechaVentaSeleccionada} 23:59:00`;
+        }
+    } else {
+        // Por defecto, usar fecha y hora actual local
+        fechaFinal = formatearFechaLocal(fechaActual);
+    }
+
     const cliente = document.getElementById('nombreCliente').value;
     const telefono = document.getElementById('telefono').value;
     const direccion = document.getElementById('direccion').value;
@@ -477,7 +524,7 @@ async function registrarNuevaVenta() {
         cantidad: producto.cantidad
     }));
 
-    // Validar que haya un cliente y productos seleccionados
+    // Validaciones
     if (!cliente || productosSeleccionados.length === 0) {
         Swal.fire('Error', 'Por favor, completa todos los campos y selecciona al menos un producto.', 'error');
         return;
@@ -487,9 +534,9 @@ async function registrarNuevaVenta() {
         return;
     }
 
-    // Verificar que haya suficiente stock para cada producto
+    // Verificar stock
     for (const producto of productos) {
-        const stockProducto = await main.getProductoById(producto.id); // Obtener producto desde el backend
+        const stockProducto = await main.getProductoById(producto.id);
         if (stockProducto.cantidad_disponible < producto.cantidad) {
             Swal.fire('Error', `No hay suficiente stock para el producto ${stockProducto.nombre}. Solo hay ${stockProducto.cantidad_disponible} unidades disponibles.`, 'error');
             return;
@@ -503,12 +550,13 @@ async function registrarNuevaVenta() {
             telefono,
             direccion,
             metodoPago,
-            total
+            total,
+            fecha: fechaFinal // Enviar la fecha final calculada
         });
 
         Swal.fire('Venta registrada', 'La venta se ha registrado correctamente y el stock ha sido actualizado.', 'success');
 
-        // Limpiar el formulario y la lista de productos seleccionados
+        // Limpiar formulario y productos seleccionados
         document.getElementById('nombreCliente').value = '';
         document.getElementById('telefono').value = '';
         document.getElementById('direccion').value = '';
@@ -518,19 +566,22 @@ async function registrarNuevaVenta() {
         productosSeleccionados = [];
 
         actualizarResumenVenta();
-        // ** Actualizar la lista de ventas después de registrar la venta **
+
+        // Actualizar la lista de ventas y productos
         const fechaHoy = new Date();
         const fechaFormateada = fechaHoy.getFullYear() + '-' 
-        + (fechaHoy.getMonth() + 1).toString().padStart(2, '0') + '-' 
-        + fechaHoy.getDate().toString().padStart(2, '0');
-        await cargarVentasPorFecha(fechaFormateada); // Actualiza la lista con la fecha de hoy
-        await actualizarProductos()
+            + (fechaHoy.getMonth() + 1).toString().padStart(2, '0') + '-' 
+            + fechaHoy.getDate().toString().padStart(2, '0');
+        await cargarVentasPorFecha(fechaFormateada);
+        await actualizarProductos();
             
     } catch (error) {
         console.error('Error al registrar la venta:', error);
         Swal.fire('Error', 'Hubo un problema al registrar la venta. Inténtalo nuevamente.', 'error');
     }
 }
+
+
 
 
 

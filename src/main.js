@@ -226,14 +226,14 @@ async function agregarProductoAOrden(idOrden, idProducto, cantidad) {
     );
 }
 
-async function crearVentaProducto({ idOrden, cliente, telefono, direccion, metodoPago, total }) {
+async function crearVentaProducto({ idOrden, cliente, telefono, direccion, metodoPago, total, fecha }) {
     const conn = await getConnection();
 
     const sql = `
     INSERT INTO venta_producto (id_orden, nombre_cliente, telefono, direccion, modo_pago, total, fecha) 
-    VALUES (?, ?, ?, ?, ?, ?, NOW())`;
+    VALUES (?, ?, ?, ?, ?, ?, ?)`;
     
-    await conn.query(sql, [idOrden, cliente, telefono, direccion, metodoPago, total]);
+    await conn.query(sql, [idOrden, cliente, telefono, direccion, metodoPago, total, fecha]);
 }
 
 async function actualizarComprasCliente(nombre_cliente, telefono) {
@@ -263,7 +263,7 @@ async function actualizarComprasCliente(nombre_cliente, telefono) {
 }
 
 
-async function registrarVenta({ productos, cliente, telefono, direccion, metodoPago, total }) {
+async function registrarVenta({ productos, cliente, telefono, direccion, metodoPago, total, fecha }) {
     try {
         const idOrden = await crearOrden();
 
@@ -277,7 +277,8 @@ async function registrarVenta({ productos, cliente, telefono, direccion, metodoP
             telefono,
             direccion,
             metodoPago,
-            total
+            total,
+            fecha
         });
 
         await actualizarComprasCliente(cliente, telefono);
@@ -291,7 +292,6 @@ async function registrarVenta({ productos, cliente, telefono, direccion, metodoP
         console.error("Error al registrar la venta:", error);
     }
 }
-
 
 
 async function eliminarVenta(idVenta) {
