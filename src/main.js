@@ -26,8 +26,10 @@ async function generarExcelGananciasDelDia(fecha) {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Ganancias del Día');
 
+    // Agregar columna para "Tipo de Venta"
     worksheet.columns = [
         { header: 'Cliente', key: 'cliente', width: 20 },
+        { header: 'Tipo de Venta', key: 'tipo_venta', width: 15 },
         { header: 'Dirección', key: 'direccion', width: 20 },
         { header: 'Teléfono', key: 'telefono', width: 15 },
         { header: 'Producto', key: 'producto_nombre', width: 25 },
@@ -39,8 +41,12 @@ async function generarExcelGananciasDelDia(fecha) {
 
     let totalGanancias = 0;
     ventasArray.forEach(venta => {
+        // Determinar el tipo de venta basado en la dirección
+        const tipoVenta = venta.direccion.toLowerCase() === 'local' ? 'Local' : 'Delivery';
+
         worksheet.addRow({
             cliente: venta.cliente,
+            tipo_venta: tipoVenta, // Asignar valor a la nueva columna
             direccion: venta.direccion,
             telefono: venta.telefono,
             producto_nombre: venta.producto_nombre,
@@ -52,6 +58,7 @@ async function generarExcelGananciasDelDia(fecha) {
         totalGanancias += venta.total;
     });
 
+    // Agregar fila con las ganancias totales
     worksheet.addRow({});
     worksheet.addRow({ producto_nombre: 'Ganancias Totales', total: totalGanancias });
 
@@ -60,7 +67,6 @@ async function generarExcelGananciasDelDia(fecha) {
     
     return filePath;
 }
-
 
 // Registrar el manejador de ipcMain en el proceso principal
 ipcMain.handle('descargar-ganancias-dia', async (event, fecha) => {

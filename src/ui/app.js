@@ -559,10 +559,13 @@ async function registrarNuevaVenta() {
         // Limpiar formulario y productos seleccionados
         document.getElementById('nombreCliente').value = '';
         document.getElementById('telefono').value = '';
-        document.getElementById('direccion').value = '';
+        document.getElementById('tipoVenta').value = 'local';
+        document.getElementById('direccion').value = 'local';
+        document.getElementById('direccion').disabled = true;
+        document.getElementById('costoEnvio').value = 0;
+        document.getElementById('costoEnvio').disabled = true;
         document.getElementById('cantidadProducto').value = '';
         document.getElementById('metodoPago').value = '';
-        document.getElementById('costoEnvio').value = '';
         productosSeleccionados = [];
 
         actualizarResumenVenta();
