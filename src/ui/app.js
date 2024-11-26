@@ -137,7 +137,7 @@ async function cargarProductos() {
         const stockProducto = selectedProduct.getAttribute('data-stock');
         const precioLocal = selectedProduct.getAttribute('data-precio-local');
         const precioDelivery = selectedProduct.getAttribute('data-precio-delivery');
-        const nombreProducto = selectedProduct.textContent;
+        const nombreProducto = selectedProduct.textContent.trim();
 
         // Configuramos el input de producto con los datos seleccionados
         inputProducto.value = nombreProducto;
