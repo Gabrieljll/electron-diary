@@ -320,6 +320,195 @@ async function eliminarVenta(idVenta) {
 }
 
 
+//COMBOS***************
+async function nuevoCombo(combo, detalles) {
+    const conn = await getConnection();
+
+    try {
+        await conn.beginTransaction();
+
+        // Insertar en `combo_productos`
+        const [result] = await conn.query('INSERT INTO combo_productos (nombre, descripcion, precio, precio_delivery) VALUES (?, ?, ?, ?)', 
+            [combo.nombre, combo.descripcion, combo.precio, combo.precio_delivery]
+        );
+        console.log(result.insertId)
+        const idCombo = result.insertId;
+
+        // Insertar detalles en `combo_detalle` y actualizar stock
+        for (const detalle of detalles) {
+            // Validar stock antes de reducirlo
+            const [producto] = await conn.query('SELECT cantidad_disponible FROM stock_productos WHERE id = ?', [detalle.id_producto]);
+            if (producto[0].cantidad_disponible < detalle.cantidad) {
+                throw new Error(`Stock insuficiente para el producto ID ${detalle.id_producto}`);
+            }
+
+            await conn.query(
+                'INSERT INTO combo_detalle (id_combo, id_producto, cantidad) VALUES (?, ?, ?)',
+                [idCombo, detalle.id_producto, detalle.cantidad]
+            );
+
+            // Reducir el stock
+            await conn.query(
+                'UPDATE stock_productos SET cantidad_disponible = cantidad_disponible - ? WHERE id = ?',
+                [detalle.cantidad, detalle.id_producto]
+            );
+        }
+
+        await conn.commit();
+
+        new Notification({
+            title: 'Pombero Stock',
+            body: 'Nuevo Combo Agregado!'
+        }).show();
+
+        return { idCombo, ...combo, detalles };
+
+    } catch (error) {
+        await conn.rollback();
+        console.error("Error al crear el combo:", error);
+        throw error;
+    }
+}
+
+
+async function getCombos() {
+    const conn = await getConnection();
+
+    // Obtener todos los combos
+    const [combos] = await conn.query('SELECT id, nombre, descripcion, precio, precio_delivery FROM combo_productos ORDER BY id DESC');
+
+    // Obtener los detalles de todos los combos
+    const [detalles] = await conn.query(`
+        SELECT cd.id_combo, cd.id_producto, cd.cantidad, sp.nombre AS producto_nombre 
+        FROM combo_detalle cd 
+        JOIN stock_productos sp ON cd.id_producto = sp.id
+    `);
+
+    // Agrupar los detalles por combo
+    const detallesMap = detalles.reduce((acc, detalle) => {
+        if (!acc[detalle.id_combo]) acc[detalle.id_combo] = [];
+        acc[detalle.id_combo].push(detalle);
+        return acc;
+    }, {});
+
+    // Mapear los detalles a sus combos correspondientes
+    return combos.map(combo => ({
+        ...combo,
+        detalles: detallesMap[combo.id] || []
+    }));
+}
+
+
+async function getComboById(idCombo) {
+    const conn = await getConnection();
+
+    // Obtener el combo
+    const [combo] = await conn.query('SELECT id, nombre, descripcion, precio, precio_delivery FROM combo_productos WHERE id = ?', [idCombo]);
+    if (!combo.length) return null;
+
+    // Obtener los detalles del combo
+    const [detalles] = await conn.query(`
+        SELECT cd.id_producto, cd.cantidad, sp.nombre AS producto_nombre 
+        FROM combo_detalle cd 
+        JOIN stock_productos sp ON cd.id_producto = sp.id 
+        WHERE cd.id_combo = ?
+    `, [idCombo]);
+
+    return { ...combo[0], detalles };
+}
+
+
+async function actualizarCombo(idCombo, combo, detalles) {
+    const conn = await getConnection();
+
+    try {
+        await conn.beginTransaction();
+
+        // Actualizar combo
+        await conn.query(
+            'UPDATE combo_productos SET nombre = ?, descripcion = ?, precio = ?, precio_delivery = ? WHERE id = ?',
+            [combo.nombre, combo.descripcion, combo.precio, combo.precio_delivery, idCombo]
+        );
+
+        // Revertir stock de los detalles originales
+        const [detallesOriginales] = await conn.query('SELECT * FROM combo_detalle WHERE id_combo = ?', [idCombo]);
+        for (const detalle of detallesOriginales) {
+            await conn.query(
+                'UPDATE stock_productos SET cantidad_disponible = cantidad_disponible + ? WHERE id = ?',
+                [detalle.cantidad, detalle.id_producto]
+            );
+        }
+
+        // Eliminar detalles originales
+        await conn.query('DELETE FROM combo_detalle WHERE id_combo = ?', [idCombo]);
+
+        // Insertar nuevos detalles y actualizar stock
+        for (const detalle of detalles) {
+            const [producto] = await conn.query('SELECT cantidad_disponible FROM stock_productos WHERE id = ?', [detalle.id_producto]);
+            if (producto[0].cantidad_disponible < detalle.cantidad) {
+                throw new Error(`Stock insuficiente para el producto ID ${detalle.id_producto}`);
+            }
+
+            await conn.query(
+                'INSERT INTO combo_detalle (id_combo, id_producto, cantidad) VALUES (?, ?, ?)',
+                [idCombo, detalle.id_producto, detalle.cantidad]
+            );
+
+            await conn.query(
+                'UPDATE stock_productos SET cantidad_disponible = cantidad_disponible - ? WHERE id = ?',
+                [detalle.cantidad, detalle.id_producto]
+            );
+        }
+
+        await conn.commit();
+
+        new Notification({
+            title: 'Pombero Stock',
+            body: 'Combo Actualizado!'
+        }).show();
+
+    } catch (error) {
+        await conn.rollback();
+        console.error("Error al actualizar el combo:", error);
+        throw error;
+    }
+}
+
+
+async function borrarCombo(idCombo) {
+    const conn = await getConnection();
+
+    try {
+        await conn.beginTransaction();
+
+        // Revertir stock de los productos en el combo
+        const [detalles] = await conn.query('SELECT * FROM combo_detalle WHERE id_combo = ?', [idCombo]);
+        for (const detalle of detalles) {
+            await conn.query(
+                'UPDATE stock_productos SET cantidad_disponible = cantidad_disponible + ? WHERE id = ?',
+                [detalle.cantidad, detalle.id_producto]
+            );
+        }
+
+        // Eliminar detalles y el combo
+        await conn.query('DELETE FROM combo_detalle WHERE id_combo = ?', [idCombo]);
+        await conn.query('DELETE FROM combo_productos WHERE id = ?', [idCombo]);
+
+        await conn.commit();
+
+        new Notification({
+            title: 'Pombero Stock',
+            body: 'Combo Eliminado!'
+        }).show();
+
+    } catch (error) {
+        await conn.rollback();
+        console.error("Error al eliminar el combo:", error);
+        throw error;
+    }
+}
+
+
 let window;
 
 function createWindow() {
@@ -359,5 +548,10 @@ module.exports = {
     actualizarProducto,
     generarExcelGananciasDelDia,
     generarExcelComprasRealizadas,
-    eliminarVenta
+    eliminarVenta,
+    nuevoCombo,
+    getCombos,
+    getComboById,
+    actualizarCombo,
+    borrarCombo
 };

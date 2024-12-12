@@ -23,13 +23,19 @@
             </div>
             <div class="div-botones-nav">
                 <button class="btn btn-light nav-buttons" onclick="mostrarVista('stock')">
-                    <img class="iconosNavegacion" src="./img/iconos/stock.png" alt="stock">
+                    <img class="iconosNavegacion" src="./img/iconos/almacen.png" alt="stock">
                     Stock
                 </button>
             </div>
             <div class="div-botones-nav">
+                <button class="btn btn-light nav-buttons" onclick="mostrarVista('combos')">
+                    <img class="iconosNavegacion" src="./img/iconos/beer.png" alt="stock">
+                    Combos
+                </button>
+            </div>
+            <div class="div-botones-nav">
                 <button class="btn btn-light nav-buttons" style="font-size: 1.2rem;" onclick="descargarExcelComprasRealizadas('stock')">
-                    <img class="iconosNavegacion" src="./img/iconos/download_doc.png" alt="excel">
+                    <img class="iconosNavegacion" src="./img/iconos/icons8-ms-excel-48.png" alt="excel">
                         Compras de clientes
                 </button>
             </div>
@@ -168,6 +174,22 @@
                 </div>
             </div>
         </div>
+
+        <!-- Vista de Combos -->
+        <div id="divCombos" style="display: none;">
+            <div class="row">
+                <div class="divBotonNuevoCombo">
+                    <button onclick="abrirModalAgregarCombo()" class="btn btn-success botonNuevoCliente">Nuevo Combo</button>
+                </div>
+                <div class="">
+                    <div class="divBotonLimpiarFiltro">
+                        <input type="text" id="filtroTextoCombo" class="form-control" placeholder="Buscar...">
+                    </div>
+                    <div id="divListaCombos"></div>
+                </div>
+            </div>
+        </div>
+
     </main>
     <footer>
         <div style="display: flex; justify-content: center; align-items: center; margin-left: 1%; text-align: center; width: 100%;">
@@ -176,4 +198,6 @@
     </footer>
 </body>
 <script src="./app.js"></script>
+<script src="./utils/autenticacionUtils.js"></script>
+<script src="./utils/excelUtils.js"></script>
 </html>
