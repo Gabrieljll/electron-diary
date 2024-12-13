@@ -13,11 +13,15 @@ let arrayProductos = [];
 let filtroFecha = false;
 let fechaFiltroSeleccionada = '';
 let filtroTexto = '';
+let filtroTextoCombo = '';
 let productosSeleccionados = [];
 
 
 // Obtiene el contenedor de la tabla
 const divFichas = document.getElementById('fichas');
+
+// Obtiene el contenedor de la tabla
+const divListaCombos = document.getElementById('divListaCombos');
 
 // Configuración de la contraseña
 const CONTRASENA = "pombero91124";
@@ -325,7 +329,7 @@ async function editarProducto(idProducto){
 
 async function borrarProducto(id){
     Swal.fire({
-        title: '¿Desea eliminar esta ficha?',
+        title: '¿Desea eliminar este producto?',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: 'rgb(91 191 175',
@@ -336,7 +340,7 @@ async function borrarProducto(id){
         if (result.isConfirmed) {
           Swal.fire(
             'Listo!',
-            'La ficha fue borrada.',
+            'El producto fue borrado.',
             'success'
           )
           await main.borrarRegistroProducto(id)
@@ -498,6 +502,7 @@ function abrirModalAgregarCombo() {
 
                 Swal.fire('Éxito', '¡El combo ha sido agregado correctamente!', 'success');
                 Swal.close();
+                await actualizarCombos();
             } catch (error) {
                 console.error('Error al guardar el combo:', error);
                 Swal.fire('Error', 'Hubo un problema al guardar el combo.', 'error');
@@ -536,12 +541,21 @@ async function agregarNuevoCombo() {
 
 async function actualizarCombos() {
     const combos = await main.getCombos();
-    renderListaCombos(combos);
+
+    // Filtra por texto y fecha
+    const combosFiltrados = combos.filter(p => {
+        const coincideTexto = filtroTextoCombo
+            ? p.nombre.toLowerCase().includes(filtroTextoCombo.toLowerCase())
+            : true;
+        const coincideFecha = filtroFecha
+            ? p.fecha === fechaFiltroSeleccionada
+            : true;
+        return coincideTexto && coincideFecha;
+    });
+    renderListaCombos(combosFiltrados);
 }
 
 function renderListaCombos(combos) {
-    console.log(combos)
-    const divListaCombos = document.getElementById('divListaCombos');
     divListaCombos.innerHTML = `
         <table class="table table-striped table-bordered">
             <thead>
@@ -572,29 +586,46 @@ function renderListaCombos(combos) {
     `;
 }
 
-async function editarCombo(idCombo){
-    const comboDevuelto = await main.getComboById(idCombo)
-    // Obtener productos disponibles
-    main.getProductos().then((productos) => {
-        const productosHTML = productos.map(p => `
-            <div class="list-group-item">
-                <input type="checkbox" class="form-check-input me-2 producto-checkbox" 
-                    data-id="${p.id}" 
-                    data-nombre="${p.nombre}" 
-                    data-stock="${p.cantidad_disponible}"
-                    checked="${p.id} >
-                <label class="form-check-label">
-                    ${p.nombre} (Stock: ${p.cantidad_disponible})
-                </label>
-                <input type="number" class="form-control form-control-sm mt-2 cantidad-producto" 
-                    placeholder="Cantidad" 
-                    min="1" 
-                    max="${p.cantidad_disponible}" 
-                    style="display: none;">
-            </div>
-        `).join('');
+async function editarCombo(idCombo) {
+    try {
+        // Obtener los datos del combo y sus productos asociados
+        const combo = await main.getComboById(idCombo);
+        if (!combo) {
+            Swal.fire('Error', 'No se encontró el combo especificado.', 'error');
+            return;
+        }
 
-        // Mostrar el modal
+        // Obtener todos los productos disponibles
+        const productos = await main.getProductos();
+
+        // Generar HTML para los productos, marcando los seleccionados y configurando sus cantidades
+        const productosHTML = productos.map(p => {
+            const productoEnCombo = combo.detalles.find(detalle => detalle.id_producto === p.id);
+            const seleccionado = productoEnCombo ? 'checked' : '';
+            const cantidad = productoEnCombo ? productoEnCombo.cantidad : '';
+            const cantidadInputStyle = productoEnCombo ? 'display: block;' : 'display: none;';
+
+            return `
+                <div class="list-group-item">
+                    <input type="checkbox" class="form-check-input me-2 producto-checkbox" 
+                        data-id="${p.id}" 
+                        data-nombre="${p.nombre}" 
+                        data-stock="${p.cantidad_disponible}" 
+                        ${seleccionado}>
+                    <label class="form-check-label">
+                        ${p.nombre} (Stock: ${p.cantidad_disponible})
+                    </label>
+                    <input type="number" class="form-control form-control-sm mt-2 cantidad-producto" 
+                        placeholder="Cantidad" 
+                        min="1" 
+                        max="${p.cantidad_disponible}" 
+                        style="${cantidadInputStyle}" 
+                        value="${cantidad}">
+                </div>
+            `;
+        }).join('');
+
+        // Mostrar el modal con los datos cargados
         Swal.fire({
             html: `
                 <h1 class="tituloModal">Editar Combo</h1>
@@ -603,19 +634,19 @@ async function editarCombo(idCombo){
                     <form id="formulario_combo">
                         <div class="form-group">
                             <label class="mt-2" for="comboNombre"><h5>Nombre</h5></label>
-                            <input type="text" id="comboNombre" placeholder="Nombre del combo" class="form-control" required>
+                            <input type="text" id="comboNombre" placeholder="Nombre del combo" class="form-control" value="${combo.nombre}" required>
                         </div>
                         <div class="form-group">
                             <label class="mt-2" for="comboDescripcion"><h5>Descripción</h5></label>
-                            <textarea id="comboDescripcion" placeholder="Descripción del combo" class="form-control" rows="3" required></textarea>
+                            <textarea id="comboDescripcion" placeholder="Descripción del combo" class="form-control" rows="3" required>${combo.descripcion}</textarea>
                         </div>
                         <div class="form-group">
                             <label class="mt-2" for="comboPrecio"><h5>Precio</h5></label>
-                            <input type="number" id="comboPrecio" placeholder="Precio del combo" class="form-control" required>
+                            <input type="number" id="comboPrecio" placeholder="Precio del combo" class="form-control" value="${combo.precio}" required>
                         </div>
                         <div class="form-group">
                             <label class="mt-2" for="comboPrecioDelivery"><h5>Precio Delivery</h5></label>
-                            <input type="number" id="comboPrecioDelivery" placeholder="Precio delivery" class="form-control" required>
+                            <input type="number" id="comboPrecioDelivery" placeholder="Precio delivery" class="form-control" value="${combo.precio_delivery}" required>
                         </div>
                         <div class="form-group">
                             <label class="mt-2"><h5>Seleccionar Productos</h5></label>
@@ -625,7 +656,7 @@ async function editarCombo(idCombo){
                         </div>
                     </form>
                 </div>
-                <button type="button" id="guardarComboBtn" class="btn btn-success mt-3">Guardar Combo</button>
+                <button type="button" id="guardarComboBtn" class="btn btn-success mt-3">Guardar Cambios</button>
             `,
             showCloseButton: true,
             showConfirmButton: false,
@@ -646,7 +677,7 @@ async function editarCombo(idCombo){
             });
         });
 
-        // Guardar el combo
+        // Guardar cambios del combo
         document.getElementById('guardarComboBtn').addEventListener('click', async () => {
             const nombre = document.getElementById('comboNombre').value.trim();
             const descripcion = document.getElementById('comboDescripcion').value.trim();
@@ -678,26 +709,58 @@ async function editarCombo(idCombo){
                 return;
             }
 
-            // Llamar al backend para guardar el combo
+            // Llamar al backend para actualizar el combo
             try {
-                await main.nuevoCombo(
+                await main.actualizarCombo(
+                    idCombo,
                     { nombre, descripcion, precio, precio_delivery: precioDelivery },
                     detalles
                 );
 
-                Swal.fire('Éxito', '¡El combo ha sido agregado correctamente!', 'success');
-                Swal.close();
+                // Actualizar dinámicamente la vista de combos
+                const combosActualizados = await main.getCombos();
+                actualizarVistaCombos(combosActualizados);
+
+                Swal.fire('Éxito', '¡El combo ha sido actualizado correctamente!', 'success');
             } catch (error) {
-                console.error('Error al guardar el combo:', error);
-                Swal.fire('Error', 'Hubo un problema al guardar el combo.', 'error');
+                console.error('Error al actualizar el combo:', error);
+                Swal.fire('Error', 'Hubo un problema al actualizar el combo.', 'error');
             }
         });
-    }).catch((error) => {
-        console.error('Error al cargar productos:', error);
-        Swal.fire('Error', 'Hubo un problema al cargar los productos.', 'error');
-    });
+    } catch (error) {
+        console.error('Error al cargar datos del combo:', error);
+        Swal.fire('Error', 'Hubo un problema al cargar los datos del combo.', 'error');
+    }
 }
+
+
+function actualizarVistaCombos(combos) {
+    renderListaCombos(combos)
+}
+
     
+async function eliminarCombo(id){
+    Swal.fire({
+        title: '¿Desea eliminar este combo?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: 'rgb(91 191 175',
+        cancelButtonColor: 'rgb(255 85 85)',
+        confirmButtonText: 'Si, borrar',
+        cancelButtonText: 'Cancelar'
+      }).then(async (result) => {
+        if (result.isConfirmed) {
+          Swal.fire(
+            'Listo!',
+            'El combo fue borrado.',
+            'success'
+          )
+          await main.borrarCombo(id)
+          await actualizarCombos();
+        }
+      })
+    return
+}
 
 // =======================================================
 // FUNCIONES PARA VENTAS
@@ -1201,6 +1264,12 @@ function filtrarPorTexto(event) {
     actualizarProductos();
 }
 
+function filtrarPorTextoCombo(event) {
+    filtroTextoCombo = event.target.value;
+    actualizarCombos();
+}
+
+
 // Configura el filtro de fecha
 function filtrarPorFecha(fecha) {
     filtroFecha = true;
@@ -1211,6 +1280,7 @@ function filtrarPorFecha(fecha) {
 // Limpia todos los filtros
 function limpiarFiltro() {
     filtroTexto = '';
+    filtroTextoCombo = '';
     filtroFecha = false;
     fechaFiltroSeleccionada = '';
     actualizarProductos();
@@ -1246,6 +1316,11 @@ function validarCamposFormulario(nombreProducto, precio, descripcion, cantidad){
 
 // Inicialización de eventos y datos
 document.getElementById("filtroTexto").addEventListener("input", filtrarPorTexto);
+async function init() {
+    await actualizarProductos();
+}
+// Inicialización de eventos y datos
+document.getElementById("filtroTextoCombo").addEventListener("input", filtrarPorTextoCombo);
 async function init() {
     await actualizarProductos();
 }
