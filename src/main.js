@@ -3,6 +3,7 @@ const { getConnection } = require('./database');
 const ExcelJS = require('exceljs');
 const path = require('path');
 
+
 async function generarExcelGananciasDelDia(fecha) {
     const conn = await getConnection();
 
