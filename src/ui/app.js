@@ -911,8 +911,8 @@ async function registrarNuevaVenta() {
         const fechaFormateada = fechaHoy.getFullYear() + '-' 
             + (fechaHoy.getMonth() + 1).toString().padStart(2, '0') + '-' 
             + fechaHoy.getDate().toString().padStart(2, '0');
-        await cargarVentasPorFecha(fechaFormateada);
         await actualizarProductos();
+        await cargarVentasPorFecha(fechaFormateada);
     } catch (error) {
         console.error('Error al registrar la venta:', error);
         Swal.fire('Error', 'Hubo un problema al registrar la venta. Inténtalo nuevamente.', 'error');
@@ -923,7 +923,7 @@ async function registrarNuevaVenta() {
 async function cargarVentasPorFecha(fecha = null) {
     const fechaSeleccionada = fecha || document.getElementById('fechaVentas').value;
     const ventas = await main.obtenerVentasPorFecha(fechaSeleccionada);
-    console.log(ventas)
+    console.log(ventas);
     const listaVentas = document.getElementById('listaVentasRealizadas');
     listaVentas.innerHTML = ''; // Limpiar la lista de ventas
 
@@ -932,18 +932,26 @@ async function cargarVentasPorFecha(fecha = null) {
         const horaYMinutos = venta.horario.split(':').slice(0, 2).join(':'); // Extrae solo HH:MM
 
         // Crear el HTML para los productos independientes
-        const productosHTML = venta.productos.map(producto => `
-            <li class="list-group-item">
-                ${producto.cantidad || 1} x ${producto.nombre} - $${producto.precio?.toFixed(2) || '0.00'}
-            </li>`).join('');
+        const productosHTML = venta.productos.map(producto => {
+            console.log(producto)
+            const precio = venta.direccion === 'local' ? producto.precio : producto.precio_delivery;
+            return `
+                <li class="list-group-item">
+                    ${producto.cantidad || 1} x ${producto.nombre} - $${precio?.toFixed(2) || '0.00'}
+                </li>`;
+        }).join('');
 
         // Crear el HTML para los combos
-        const combosHTML = venta.combos.map(combo => `
-            <li class="list-group-item">
-                ${combo.cantidad} x ${combo.nombre} - $${(combo.cantidad * combo.precio).toFixed(2)}
-                <br>
-                <small>Incluye: ${combo.productos.map(p => p.nombre).join(', ')}</small>
-            </li>`).join('');
+        const combosHTML = venta.combos.map(combo => {
+            console.log(combo)
+            const precio = venta.direccion === 'local' ? combo.precio : combo.precio_delivery;
+            return `
+                <li class="list-group-item">
+                    ${combo.cantidad} x ${combo.nombre} - $${(combo.cantidad * precio).toFixed(2)}
+                    <br>
+                    <small>Incluye: ${combo.productos.map(p => p.nombre).join(', ')}</small>
+                </li>`;
+        }).join('');
 
         // Crear el elemento de la venta
         const ventaItem = document.createElement('li');
@@ -979,11 +987,6 @@ async function cargarVentasPorFecha(fecha = null) {
         listaVentas.appendChild(ventaItem);
     });
 }
-
-
-
-
-
 
 
 async function eliminarVenta(idVenta) {
@@ -1035,6 +1038,7 @@ async function mostrarVista(vista) {
         stockButton.classList.remove('active');
         combosButton.classList.remove('active');
         await actualizarProductos();
+        await cargarVentasPorFecha();
     } else if (vista === 'stock') {
         const tieneAcceso = await solicitarContrasena();
         if (!tieneAcceso) {
@@ -1288,6 +1292,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hoy = new Date().toISOString().split('T')[0];
         fechaVentasInput.value = hoy;
     }
+    cargarVentasPorFecha();
 });
 
 

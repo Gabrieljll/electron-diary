@@ -266,9 +266,11 @@ async function obtenerVentasPorFecha(fecha) {
             COALESCE(o.cantidad, 0) AS producto_cantidad, -- Cantidad de productos individuales
             p.nombre AS producto_nombre, -- Nombre del producto individual
             p.precio AS producto_precio,
+            p.precio_delivery AS producto_precio_delivery, -- Precio delivery del producto
             oc.cantidad AS combo_cantidad,
             c.nombre AS combo_nombre,
             c.precio AS combo_precio,
+            c.precio_delivery AS combo_precio_delivery, -- Precio delivery del combo
             cd.id_producto AS producto_en_combo_id,
             sp.nombre AS producto_en_combo_nombre,
             TIME(vp.fecha) AS horario
@@ -309,6 +311,7 @@ async function obtenerVentasPorFecha(fecha) {
                     cantidad: row.combo_cantidad,
                     nombre: row.combo_nombre,
                     precio: row.combo_precio,
+                    precio_delivery: row.combo_precio_delivery,
                     productos: []
                 };
                 venta.combos.push(comboExistente);
@@ -333,7 +336,8 @@ async function obtenerVentasPorFecha(fecha) {
                 venta.productos.push({
                     cantidad: row.producto_cantidad,
                     nombre: row.producto_nombre,
-                    precio: row.producto_precio
+                    precio: row.producto_precio,
+                    precio_delivery: row.producto_precio_delivery
                 });
             }
         }
@@ -343,6 +347,7 @@ async function obtenerVentasPorFecha(fecha) {
 
     return Object.values(ventasAgrupadas);
 }
+
 
 
 
