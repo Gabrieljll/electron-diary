@@ -141,7 +141,6 @@ async function generarExcelGananciasDelDia(fecha) {
     // Guardar el archivo Excel en el escritorio
     await workbook.xlsx.writeFile(filePath);
 
-    console.log(`Archivo Excel generado en: ${filePath}`);
     return filePath;
 }
 
@@ -392,8 +391,8 @@ async function actualizarComprasCliente(nombre_cliente, telefono) {
     const conn = await getConnection();
 
     const [resultado] = await conn.query(
-        `SELECT cantidad_compras FROM compras_realizadas WHERE telefono = ?`,
-        [telefono]
+        `SELECT cantidad_compras FROM compras_realizadas WHERE nombre_cliente = ? AND telefono = ?`,
+        [nombre_cliente, telefono]
     );
 
     const clienteExistente = resultado[0];
@@ -402,8 +401,8 @@ async function actualizarComprasCliente(nombre_cliente, telefono) {
         // Incrementar la cantidad de compras si el cliente ya existe
         const nuevaCantidad = (clienteExistente.cantidad_compras || 0) + 1;
         await conn.query(
-            `UPDATE compras_realizadas SET cantidad_compras = ? WHERE telefono = ?`,
-            [nuevaCantidad, telefono]
+            `UPDATE compras_realizadas SET cantidad_compras = ? WHERE nombre_cliente = ? AND telefono = ?`,
+            [nuevaCantidad, nombre_cliente, telefono]
         );
     } else {
         // Crear un nuevo registro si el cliente no existe
@@ -518,7 +517,6 @@ async function nuevoCombo(combo, detalles) {
         const [result] = await conn.query('INSERT INTO combo_productos (nombre, descripcion, precio, precio_delivery) VALUES (?, ?, ?, ?)', 
             [combo.nombre, combo.descripcion, combo.precio, combo.precio_delivery]
         );
-        console.log(result.insertId)
         const idCombo = result.insertId;
 
         // Insertar detalles en `combo_detalle` y actualizar stock
@@ -696,6 +694,18 @@ async function borrarCombo(idCombo) {
 }
 
 
+async function buscarClientesByNombre(parteNombre){
+    const conn = await getConnection();
+
+    // Consulta para encontrar clientes cuyo nombre coincida parcialmente con el texto ingresado
+    const [resultado] = await conn.query(
+        `SELECT nombre_cliente, telefono FROM compras_realizadas WHERE nombre_cliente LIKE ?`,
+        [`%${parteNombre}%`] // El porcentaje (%) permite buscar coincidencias parciales
+    );
+
+    return resultado;
+}
+
 let window;
 
 function createWindow() {
@@ -740,5 +750,6 @@ module.exports = {
     getCombos,
     getComboById,
     actualizarCombo,
-    borrarCombo
+    borrarCombo,
+    buscarClientesByNombre
 };

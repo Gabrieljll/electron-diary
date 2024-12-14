@@ -923,7 +923,6 @@ async function registrarNuevaVenta() {
 async function cargarVentasPorFecha(fecha = null) {
     const fechaSeleccionada = fecha || document.getElementById('fechaVentas').value;
     const ventas = await main.obtenerVentasPorFecha(fechaSeleccionada);
-    console.log(ventas);
     const listaVentas = document.getElementById('listaVentasRealizadas');
     listaVentas.innerHTML = ''; // Limpiar la lista de ventas
 
@@ -933,7 +932,6 @@ async function cargarVentasPorFecha(fecha = null) {
 
         // Crear el HTML para los productos independientes
         const productosHTML = venta.productos.map(producto => {
-            console.log(producto)
             const precio = venta.direccion === 'local' ? producto.precio : producto.precio_delivery;
             return `
                 <li class="list-group-item">
@@ -943,7 +941,6 @@ async function cargarVentasPorFecha(fecha = null) {
 
         // Crear el HTML para los combos
         const combosHTML = venta.combos.map(combo => {
-            console.log(combo)
             const precio = venta.direccion === 'local' ? combo.precio : combo.precio_delivery;
             return `
                 <li class="list-group-item">
@@ -1241,7 +1238,6 @@ async function actualizarPreciosProductos(precioTipo) {
         // Aquí debes hacer una consulta para obtener el precio de cada producto (local o delivery)
         // Vamos a simularlo con una llamada AJAX o alguna lógica similar:
         await main.getProductoById(productoId).then(productoData => {
-            console.log(productoData);
             const precio = productoData[precioTipo];  // Obtener el precio adecuado
 
             // Verificar si el elemento con la clase .precioProducto existe
@@ -1453,5 +1449,48 @@ async function descargarGananciasDelDia() {
     }
 }
 
+document.getElementById('nombreCliente').addEventListener('input', async function() {
+    const nombreCliente = this.value.trim();
+
+    if (nombreCliente.length > 0) {
+        // Obtener clientes que coincidan con la entrada
+        const clientes = await main.buscarClientesByNombre(nombreCliente);
+
+        // Limpiar lista de sugerencias antes de mostrar nuevas
+        const listaSugerencias = document.getElementById('clienteSugerencias');
+        listaSugerencias.innerHTML = '';
+
+        if (clientes.length > 0) {
+            listaSugerencias.style.display = 'block'; // Mostrar sugerencias
+            clientes.forEach(cliente => {
+                const item = document.createElement('li');
+                item.classList.add('list-group-item');
+                item.textContent = cliente.nombre_cliente;
+
+                // Al hacer clic en un item, completar el campo de texto con el nombre y teléfono
+                item.addEventListener('click', function() {
+                    document.getElementById('nombreCliente').value = cliente.nombre_cliente;
+                    document.getElementById('telefono').value = cliente.telefono; // Completar el teléfono
+                    listaSugerencias.style.display = 'none'; // Ocultar las sugerencias al hacer clic
+                });
+
+                listaSugerencias.appendChild(item);
+            });
+        } else {
+            listaSugerencias.style.display = 'none'; // Ocultar sugerencias si no hay resultados
+        }
+    } else {
+        document.getElementById('clienteSugerencias').style.display = 'none'; // Ocultar sugerencias si el campo está vacío
+    }
+});
+
+// Para ocultar la lista de sugerencias si el usuario hace clic fuera del campo
+document.addEventListener('click', function(e) {
+    const listaSugerencias = document.getElementById('clienteSugerencias');
+    const inputNombre = document.getElementById('nombreCliente');
+    if (!inputNombre.contains(e.target) && !listaSugerencias.contains(e.target)) {
+        listaSugerencias.style.display = 'none'; // Ocultar sugerencias si se hace clic fuera
+    }
+});
 
 init();
