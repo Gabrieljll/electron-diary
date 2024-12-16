@@ -216,8 +216,19 @@ async function nuevoProducto(fichaCliente) {
 
 async function borrarRegistroProducto(id) {
     const conn = await getConnection();
-    const [result] = await conn.query('DELETE FROM stock_productos WHERE id = ?', [id]);
-    return result;
+    
+    try {
+        // Eliminar los registros relacionados de `orden_producto`
+        await conn.query('DELETE FROM orden_producto WHERE id_producto = ?', [id]);
+
+        // Eliminar el producto de `stock_productos`
+        const [result] = await conn.query('DELETE FROM stock_productos WHERE id = ?', [id]);
+
+        return result;
+    } catch (error) {
+        console.error('Error al borrar el producto:', error);
+        throw error;
+    }
 }
 
 async function getProductoById(id) {
@@ -675,8 +686,13 @@ async function borrarCombo(idCombo) {
             );
         }
 
-        // Eliminar detalles y el combo
+        // Eliminar registros relacionados en `orden_combo`
+        await conn.query('DELETE FROM orden_combo WHERE id_combo = ?', [idCombo]);
+
+        // Eliminar detalles del combo
         await conn.query('DELETE FROM combo_detalle WHERE id_combo = ?', [idCombo]);
+
+        // Eliminar el combo en sí
         await conn.query('DELETE FROM combo_productos WHERE id = ?', [idCombo]);
 
         await conn.commit();

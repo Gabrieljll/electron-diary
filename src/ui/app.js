@@ -837,6 +837,7 @@ async function registrarNuevaVenta() {
         fechaFinal = formatearFechaLocal(fechaActual);
     }
 
+
     const cliente = document.getElementById('nombreCliente').value;
     const telefono = document.getElementById('telefono').value;
     const direccion = document.getElementById('direccion').value;
@@ -907,12 +908,12 @@ async function registrarNuevaVenta() {
         actualizarResumenVenta();
 
         // Actualizar la lista de ventas y productos
-        const fechaHoy = new Date();
+/*         const fechaHoy = new Date();
         const fechaFormateada = fechaHoy.getFullYear() + '-' 
             + (fechaHoy.getMonth() + 1).toString().padStart(2, '0') + '-' 
-            + fechaHoy.getDate().toString().padStart(2, '0');
+            + fechaHoy.getDate().toString().padStart(2, '0'); */
         await actualizarProductos();
-        await cargarVentasPorFecha(fechaFormateada);
+        await cargarVentasPorFecha(fechaVentaSeleccionada);
     } catch (error) {
         console.error('Error al registrar la venta:', error);
         Swal.fire('Error', 'Hubo un problema al registrar la venta. Inténtalo nuevamente.', 'error');
@@ -1037,11 +1038,11 @@ async function mostrarVista(vista) {
         await actualizarProductos();
         await cargarVentasPorFecha();
     } else if (vista === 'stock') {
-        const tieneAcceso = await solicitarContrasena();
+/*         const tieneAcceso = await solicitarContrasena();
         if (!tieneAcceso) {
             Swal.fire('Acceso denegado', 'La contraseña ingresada es incorrecta', 'error');
             return;
-        }
+        } */
 
         divVentas.style.display = 'none';
         divStock.style.display = 'block';
@@ -1051,11 +1052,11 @@ async function mostrarVista(vista) {
         stockButton.classList.add('active');
         combosButton.classList.remove('active');
     } else if (vista === 'combos') {
-        const tieneAcceso = await solicitarContrasena();
+/*         const tieneAcceso = await solicitarContrasena();
         if (!tieneAcceso) {
             Swal.fire('Acceso denegado', 'La contraseña ingresada es incorrecta', 'error');
             return;
-        }
+        } */
 
         divVentas.style.display = 'none';
         divStock.style.display = 'none';
@@ -1426,11 +1427,11 @@ async function descargarExcelComprasRealizadas(){
 }
 
 async function descargarGananciasDelDia() {
-    const tieneAcceso = await solicitarContrasena();
+/*     const tieneAcceso = await solicitarContrasena();
     if (!tieneAcceso) {
         Swal.fire('Acceso denegado', 'La contraseña ingresada es incorrecta', 'error');
         return;
-    }
+    } */
 
     const fecha = document.getElementById('fechaVentas').value;
     if (!fecha) {
@@ -1491,6 +1492,28 @@ document.addEventListener('click', function(e) {
     if (!inputNombre.contains(e.target) && !listaSugerencias.contains(e.target)) {
         listaSugerencias.style.display = 'none'; // Ocultar sugerencias si se hace clic fuera
     }
+});
+
+document.getElementById('fechaVentas').addEventListener('change', (event) => {
+    const nuevaFecha = event.target.value;
+    const fechaVenta = document.getElementById('fechaVenta');
+
+    if (fechaVenta) {
+        fechaVenta.value = nuevaFecha;
+    }
+
+    cargarVentasPorFecha(nuevaFecha);
+});
+
+document.getElementById('fechaVenta').addEventListener('change', (event) => {
+    const nuevaFecha = event.target.value;
+    const fechaVentas = document.getElementById('fechaVentas');
+
+    if (fechaVentas) {
+        fechaVentas.value = nuevaFecha;
+    }
+
+    cargarVentasPorFecha(nuevaFecha);
 });
 
 init();
