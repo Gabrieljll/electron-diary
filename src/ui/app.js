@@ -436,26 +436,37 @@ function renderListaProductos(productos) {
 // FUNCIONES PARA COMBOS
 // =======================================================
 function abrirModalAgregarCombo() {
-    // Obtener productos disponibles
     main.getProductos().then((productos) => {
-        const productosHTML = productos.map(p => `
-            <div class="list-group-item">
-                <input type="checkbox" class="form-check-input me-2 producto-checkbox" 
-                    data-id="${p.id}" 
-                    data-nombre="${p.nombre}" 
-                    data-stock="${p.cantidad_disponible}">
-                <label class="form-check-label">
-                    ${p.nombre} (Stock: ${p.cantidad_disponible})
-                </label>
-                <input type="number" class="form-control form-control-sm mt-2 cantidad-producto" 
-                    placeholder="Cantidad" 
-                    min="1" 
-                    max="${p.cantidad_disponible}" 
-                    style="display: none;">
-            </div>
-        `).join('');
+        let productosFiltrados = [...productos];
+        const seleccionados = new Map(); // Mapa para guardar selección y cantidad
 
-        // Mostrar el modal
+        const renderProductos = () => {
+            return productosFiltrados.map(p => {
+                const seleccionado = seleccionados.has(p.id);
+                const cantidad = seleccionado ? seleccionados.get(p.id).cantidad : '';
+                const cantidadInputStyle = seleccionado ? 'display: block;' : 'display: none;';
+
+                return `
+                    <div class="list-group-item">
+                        <input type="checkbox" class="form-check-input me-2 producto-checkbox" 
+                            data-id="${p.id}" 
+                            data-nombre="${p.nombre}" 
+                            data-stock="${p.cantidad_disponible}" 
+                            ${seleccionado ? 'checked' : ''}>
+                        <label class="form-check-label">
+                            ${p.nombre} (Stock: ${p.cantidad_disponible})
+                        </label>
+                        <input type="number" class="form-control form-control-sm mt-2 cantidad-producto" 
+                            placeholder="Cantidad" 
+                            min="1" 
+                            max="${p.cantidad_disponible}" 
+                            style="${cantidadInputStyle}" 
+                            value="${cantidad}">
+                    </div>
+                `;
+            }).join('');
+        };
+
         Swal.fire({
             html: `
                 <h1 class="tituloModal">Nuevo Combo</h1>
@@ -479,9 +490,12 @@ function abrirModalAgregarCombo() {
                             <input type="number" id="comboPrecioDelivery" placeholder="Precio delivery" class="form-control" required>
                         </div>
                         <div class="form-group">
-                            <label class="mt-2"><h5>Seleccionar Productos</h5></label>
+                            <label class="mt-2"><h5>Filtrar Productos</h5></label>
+                            <input type="text" id="filtroProductos" placeholder="Buscar productos..." class="form-control">
+                        </div>
+                        <div class="form-group">
                             <div id="productosSeleccionables" class="list-group">
-                                ${productosHTML}
+                                ${renderProductos()}
                             </div>
                         </div>
                     </form>
@@ -492,20 +506,51 @@ function abrirModalAgregarCombo() {
             showConfirmButton: false,
         });
 
-        // Manejar selección de productos
-        const checkboxes = document.querySelectorAll('.producto-checkbox');
-        checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', (event) => {
-                const cantidadInput = event.target.closest('.list-group-item').querySelector('.cantidad-producto');
-                if (event.target.checked) {
-                    cantidadInput.style.display = 'block';
-                    cantidadInput.value = 1; // Valor inicial
-                } else {
-                    cantidadInput.style.display = 'none';
-                    cantidadInput.value = ''; // Limpiar valor
-                }
-            });
+        // Filtro dinámico para productos
+        const filtroInput = document.getElementById('filtroProductos');
+        const productosSeleccionables = document.getElementById('productosSeleccionables');
+        filtroInput.addEventListener('input', () => {
+            const filtro = filtroInput.value.toLowerCase();
+            productosFiltrados = productos.filter(p => p.nombre.toLowerCase().includes(filtro));
+            productosSeleccionables.innerHTML = renderProductos();
+
+            agregarEventListenersProductos(); // Volver a agregar listeners
         });
+
+        const agregarEventListenersProductos = () => {
+            const checkboxes = document.querySelectorAll('.producto-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', (event) => {
+                    const id = parseInt(event.target.dataset.id);
+                    const cantidadInput = event.target.closest('.list-group-item').querySelector('.cantidad-producto');
+                    
+                    if (event.target.checked) {
+                        cantidadInput.style.display = 'block';
+                        cantidadInput.value = seleccionados.get(id)?.cantidad || 1;
+                        seleccionados.set(id, { nombre: event.target.dataset.nombre, cantidad: parseInt(cantidadInput.value) });
+                    } else {
+                        cantidadInput.style.display = 'none';
+                        seleccionados.delete(id);
+                    }
+                });
+            });
+
+            const cantidadInputs = document.querySelectorAll('.cantidad-producto');
+            cantidadInputs.forEach(input => {
+                input.addEventListener('input', (event) => {
+                    const id = parseInt(event.target.closest('.list-group-item').querySelector('.producto-checkbox').dataset.id);
+                    const cantidad = parseInt(event.target.value);
+
+                    if (!isNaN(cantidad) && cantidad > 0) {
+                        if (seleccionados.has(id)) {
+                            seleccionados.set(id, { ...seleccionados.get(id), cantidad });
+                        }
+                    }
+                });
+            });
+        };
+
+        agregarEventListenersProductos(); // Agregar listeners iniciales
 
         // Guardar el combo
         document.getElementById('guardarComboBtn').addEventListener('click', async () => {
@@ -519,20 +564,10 @@ function abrirModalAgregarCombo() {
                 return;
             }
 
-            const detalles = [];
-            checkboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    const idProducto = parseInt(checkbox.dataset.id);
-                    const cantidad = parseInt(checkbox.closest('.list-group-item').querySelector('.cantidad-producto').value);
-
-                    if (isNaN(cantidad) || cantidad <= 0) {
-                        Swal.fire('Error', 'Ingrese cantidades válidas para los productos seleccionados.', 'error');
-                        return;
-                    }
-
-                    detalles.push({ id_producto: idProducto, cantidad });
-                }
-            });
+            const detalles = Array.from(seleccionados.values()).map(s => ({
+                id_producto: productos.find(p => p.nombre === s.nombre).id,
+                cantidad: s.cantidad
+            }));
 
             if (detalles.length === 0) {
                 Swal.fire('Error', 'Debe seleccionar al menos un producto para el combo.', 'error');
@@ -547,7 +582,6 @@ function abrirModalAgregarCombo() {
                 );
 
                 Swal.fire('Éxito', '¡El combo ha sido agregado correctamente!', 'success');
-                Swal.close();
                 await actualizarCombos();
             } catch (error) {
                 console.error('Error al guardar el combo:', error);
@@ -559,6 +593,7 @@ function abrirModalAgregarCombo() {
         Swal.fire('Error', 'Hubo un problema al cargar los productos.', 'error');
     });
 }
+
 
 async function agregarNuevoCombo() {
     const nombreCombo = document.getElementById('nombreCombo').value;
@@ -634,44 +669,51 @@ function renderListaCombos(combos) {
 
 async function editarCombo(idCombo) {
     try {
-        // Obtener los datos del combo y sus productos asociados
         const combo = await main.getComboById(idCombo);
         if (!combo) {
             Swal.fire('Error', 'No se encontró el combo especificado.', 'error');
             return;
         }
 
-        // Obtener todos los productos disponibles
         const productos = await main.getProductos();
+        let productosFiltrados = [...productos];
+        const seleccionados = new Map();
 
-        // Generar HTML para los productos, marcando los seleccionados y configurando sus cantidades
-        const productosHTML = productos.map(p => {
-            const productoEnCombo = combo.detalles.find(detalle => detalle.id_producto === p.id);
-            const seleccionado = productoEnCombo ? 'checked' : '';
-            const cantidad = productoEnCombo ? productoEnCombo.cantidad : '';
-            const cantidadInputStyle = productoEnCombo ? 'display: block;' : 'display: none;';
+        // Inicializar seleccionados con los productos actuales del combo
+        combo.detalles.forEach(detalle => {
+            seleccionados.set(detalle.id_producto, {
+                nombre: detalle.producto_nombre,
+                cantidad: detalle.cantidad
+            });
+        });
 
-            return `
-                <div class="list-group-item">
-                    <input type="checkbox" class="form-check-input me-2 producto-checkbox" 
-                        data-id="${p.id}" 
-                        data-nombre="${p.nombre}" 
-                        data-stock="${p.cantidad_disponible}" 
-                        ${seleccionado}>
-                    <label class="form-check-label">
-                        ${p.nombre} (Stock: ${p.cantidad_disponible})
-                    </label>
-                    <input type="number" class="form-control form-control-sm mt-2 cantidad-producto" 
-                        placeholder="Cantidad" 
-                        min="1" 
-                        max="${p.cantidad_disponible}" 
-                        style="${cantidadInputStyle}" 
-                        value="${cantidad}">
-                </div>
-            `;
-        }).join('');
+        const renderProductos = () => {
+            return productosFiltrados.map(p => {
+                const seleccionado = seleccionados.has(p.id);
+                const cantidad = seleccionado ? seleccionados.get(p.id).cantidad : '';
+                const cantidadInputStyle = seleccionado ? 'display: block;' : 'display: none;';
 
-        // Mostrar el modal con los datos cargados
+                return `
+                    <div class="list-group-item">
+                        <input type="checkbox" class="form-check-input me-2 producto-checkbox" 
+                            data-id="${p.id}" 
+                            data-nombre="${p.nombre}" 
+                            data-stock="${p.cantidad_disponible}" 
+                            ${seleccionado ? 'checked' : ''}>
+                        <label class="form-check-label">
+                            ${p.nombre} (Stock: ${p.cantidad_disponible})
+                        </label>
+                        <input type="number" class="form-control form-control-sm mt-2 cantidad-producto" 
+                            placeholder="Cantidad" 
+                            min="1" 
+                            max="${p.cantidad_disponible}" 
+                            style="${cantidadInputStyle}" 
+                            value="${cantidad}">
+                    </div>
+                `;
+            }).join('');
+        };
+
         Swal.fire({
             html: `
                 <h1 class="tituloModal">Editar Combo</h1>
@@ -695,9 +737,12 @@ async function editarCombo(idCombo) {
                             <input type="number" id="comboPrecioDelivery" placeholder="Precio delivery" class="form-control" value="${combo.precio_delivery}" required>
                         </div>
                         <div class="form-group">
-                            <label class="mt-2"><h5>Seleccionar Productos</h5></label>
+                            <label class="mt-2"><h5>Filtrar Productos</h5></label>
+                            <input type="text" id="filtroProductos" placeholder="Buscar productos..." class="form-control">
+                        </div>
+                        <div class="form-group">
                             <div id="productosSeleccionables" class="list-group">
-                                ${productosHTML}
+                                ${renderProductos()}
                             </div>
                         </div>
                     </form>
@@ -708,22 +753,52 @@ async function editarCombo(idCombo) {
             showConfirmButton: false,
         });
 
-        // Manejar selección de productos
-        const checkboxes = document.querySelectorAll('.producto-checkbox');
-        checkboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', (event) => {
-                const cantidadInput = event.target.closest('.list-group-item').querySelector('.cantidad-producto');
-                if (event.target.checked) {
-                    cantidadInput.style.display = 'block';
-                    cantidadInput.value = 1; // Valor inicial
-                } else {
-                    cantidadInput.style.display = 'none';
-                    cantidadInput.value = ''; // Limpiar valor
-                }
-            });
+        const filtroInput = document.getElementById('filtroProductos');
+        const productosSeleccionables = document.getElementById('productosSeleccionables');
+
+        filtroInput.addEventListener('input', () => {
+            const filtro = filtroInput.value.toLowerCase();
+            productosFiltrados = productos.filter(p => p.nombre.toLowerCase().includes(filtro));
+            productosSeleccionables.innerHTML = renderProductos();
+
+            agregarEventListenersProductos();
         });
 
-        // Guardar cambios del combo
+        const agregarEventListenersProductos = () => {
+            const checkboxes = document.querySelectorAll('.producto-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', (event) => {
+                    const id = parseInt(event.target.dataset.id);
+                    const cantidadInput = event.target.closest('.list-group-item').querySelector('.cantidad-producto');
+
+                    if (event.target.checked) {
+                        cantidadInput.style.display = 'block';
+                        cantidadInput.value = seleccionados.get(id)?.cantidad || 1;
+                        seleccionados.set(id, { nombre: event.target.dataset.nombre, cantidad: parseInt(cantidadInput.value) });
+                    } else {
+                        cantidadInput.style.display = 'none';
+                        seleccionados.delete(id);
+                    }
+                });
+            });
+
+            const cantidadInputs = document.querySelectorAll('.cantidad-producto');
+            cantidadInputs.forEach(input => {
+                input.addEventListener('input', (event) => {
+                    const id = parseInt(event.target.closest('.list-group-item').querySelector('.producto-checkbox').dataset.id);
+                    const cantidad = parseInt(event.target.value);
+
+                    if (!isNaN(cantidad) && cantidad > 0) {
+                        if (seleccionados.has(id)) {
+                            seleccionados.set(id, { ...seleccionados.get(id), cantidad });
+                        }
+                    }
+                });
+            });
+        };
+
+        agregarEventListenersProductos();
+
         document.getElementById('guardarComboBtn').addEventListener('click', async () => {
             const nombre = document.getElementById('comboNombre').value.trim();
             const descripcion = document.getElementById('comboDescripcion').value.trim();
@@ -735,27 +810,16 @@ async function editarCombo(idCombo) {
                 return;
             }
 
-            const detalles = [];
-            checkboxes.forEach(checkbox => {
-                if (checkbox.checked) {
-                    const idProducto = parseInt(checkbox.dataset.id);
-                    const cantidad = parseInt(checkbox.closest('.list-group-item').querySelector('.cantidad-producto').value);
-
-                    if (isNaN(cantidad) || cantidad <= 0) {
-                        Swal.fire('Error', 'Ingrese cantidades válidas para los productos seleccionados.', 'error');
-                        return;
-                    }
-
-                    detalles.push({ id_producto: idProducto, cantidad });
-                }
-            });
+            const detalles = Array.from(seleccionados.values()).map(s => ({
+                id_producto: productos.find(p => p.nombre === s.nombre).id,
+                cantidad: s.cantidad
+            }));
 
             if (detalles.length === 0) {
                 Swal.fire('Error', 'Debe seleccionar al menos un producto para el combo.', 'error');
                 return;
             }
 
-            // Llamar al backend para actualizar el combo
             try {
                 await main.actualizarCombo(
                     idCombo,
@@ -763,7 +827,6 @@ async function editarCombo(idCombo) {
                     detalles
                 );
 
-                // Actualizar dinámicamente la vista de combos
                 const combosActualizados = await main.getCombos();
                 actualizarVistaCombos(combosActualizados);
 

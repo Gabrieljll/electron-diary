@@ -424,7 +424,6 @@ async function actualizarComprasCliente(nombre_cliente, telefono) {
     }
 }
 
-// Agregar un combo a la orden y manejar sus productos
 async function agregarComboAOrden(idOrden, idCombo, cantidadCombo) {
     const conn = await getConnection();
 
@@ -434,7 +433,7 @@ async function agregarComboAOrden(idOrden, idCombo, cantidadCombo) {
         [idCombo]
     );
 
-    // Agregar el combo a la orden (opcional, si se desea registrar el combo como tal)
+    // Agregar el combo a la orden
     await conn.query(
         `INSERT INTO orden_combo (id_orden, id_combo, cantidad) VALUES (?, ?, ?)`,
         [idOrden, idCombo, cantidadCombo]
@@ -449,12 +448,6 @@ async function agregarComboAOrden(idOrden, idCombo, cantidadCombo) {
             `UPDATE stock_productos SET cantidad_disponible = cantidad_disponible - ? WHERE id = ?`,
             [cantidadTotal, detalle.id_producto]
         );
-
-        // Registrar los productos del combo en la orden
-/*         await conn.query(
-            `INSERT INTO orden_producto (id_orden, id_producto, cantidad) VALUES (?, ?, ?)`,
-            [idOrden, detalle.id_producto, cantidadTotal]
-        ); */
     }
 }
 
@@ -525,28 +518,17 @@ async function nuevoCombo(combo, detalles) {
         await conn.beginTransaction();
 
         // Insertar en `combo_productos`
-        const [result] = await conn.query('INSERT INTO combo_productos (nombre, descripcion, precio, precio_delivery) VALUES (?, ?, ?, ?)', 
+        const [result] = await conn.query(
+            'INSERT INTO combo_productos (nombre, descripcion, precio, precio_delivery) VALUES (?, ?, ?, ?)',
             [combo.nombre, combo.descripcion, combo.precio, combo.precio_delivery]
         );
         const idCombo = result.insertId;
 
-        // Insertar detalles en `combo_detalle` y actualizar stock
+        // Insertar detalles en `combo_detalle`
         for (const detalle of detalles) {
-            // Validar stock antes de reducirlo
-            const [producto] = await conn.query('SELECT cantidad_disponible FROM stock_productos WHERE id = ?', [detalle.id_producto]);
-            if (producto[0].cantidad_disponible < detalle.cantidad) {
-                throw new Error(`Stock insuficiente para el producto ID ${detalle.id_producto}`);
-            }
-
             await conn.query(
                 'INSERT INTO combo_detalle (id_combo, id_producto, cantidad) VALUES (?, ?, ?)',
                 [idCombo, detalle.id_producto, detalle.cantidad]
-            );
-
-            // Reducir el stock
-            await conn.query(
-                'UPDATE stock_productos SET cantidad_disponible = cantidad_disponible - ? WHERE id = ?',
-                [detalle.cantidad, detalle.id_producto]
             );
         }
 
@@ -565,6 +547,7 @@ async function nuevoCombo(combo, detalles) {
         throw error;
     }
 }
+
 
 
 async function getCombos() {
@@ -626,33 +609,14 @@ async function actualizarCombo(idCombo, combo, detalles) {
             [combo.nombre, combo.descripcion, combo.precio, combo.precio_delivery, idCombo]
         );
 
-        // Revertir stock de los detalles originales
-        const [detallesOriginales] = await conn.query('SELECT * FROM combo_detalle WHERE id_combo = ?', [idCombo]);
-        for (const detalle of detallesOriginales) {
-            await conn.query(
-                'UPDATE stock_productos SET cantidad_disponible = cantidad_disponible + ? WHERE id = ?',
-                [detalle.cantidad, detalle.id_producto]
-            );
-        }
-
         // Eliminar detalles originales
         await conn.query('DELETE FROM combo_detalle WHERE id_combo = ?', [idCombo]);
 
-        // Insertar nuevos detalles y actualizar stock
+        // Insertar nuevos detalles
         for (const detalle of detalles) {
-            const [producto] = await conn.query('SELECT cantidad_disponible FROM stock_productos WHERE id = ?', [detalle.id_producto]);
-            if (producto[0].cantidad_disponible < detalle.cantidad) {
-                throw new Error(`Stock insuficiente para el producto ID ${detalle.id_producto}`);
-            }
-
             await conn.query(
                 'INSERT INTO combo_detalle (id_combo, id_producto, cantidad) VALUES (?, ?, ?)',
                 [idCombo, detalle.id_producto, detalle.cantidad]
-            );
-
-            await conn.query(
-                'UPDATE stock_productos SET cantidad_disponible = cantidad_disponible - ? WHERE id = ?',
-                [detalle.cantidad, detalle.id_producto]
             );
         }
 
