@@ -1,6 +1,6 @@
 {
   "name": "pombero-alcoholic-app",
-  "version": "v1.2.3",
+  "version": "v1.3.0",
   "description": "Pombero Alcoholic App",
   "main": "src/index.js",
   "scripts": {
