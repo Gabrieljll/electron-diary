@@ -7,7 +7,7 @@ const path = require('path');
 async function generarExcelGananciasDelDia(fecha) {
     const conn = await getConnection();
 
-    // Consulta ajustada para incluir precios locales y de delivery
+    // Consulta ajustada para incluir el costo de envío
     const [ventas] = await conn.query(`
         SELECT 
             vp.id_orden,
@@ -16,6 +16,7 @@ async function generarExcelGananciasDelDia(fecha) {
             vp.telefono,
             vp.modo_pago,
             vp.total AS total_venta,
+            vp.costo_envio,
             cp.nombre AS combo_nombre,
             IF(vp.direccion = 'local', cp.precio, cp.precio_delivery) AS combo_precio,
             SUM(oc.cantidad) AS combo_cantidad,
@@ -35,6 +36,7 @@ async function generarExcelGananciasDelDia(fecha) {
             vp.telefono, 
             vp.modo_pago, 
             vp.total, 
+            vp.costo_envio, 
             cp.nombre, 
             cp.precio, 
             cp.precio_delivery, 
@@ -50,18 +52,14 @@ async function generarExcelGananciasDelDia(fecha) {
     const worksheet = workbook.addWorksheet('Ganancias del Día');
 
     worksheet.columns = [
-        { header: 'Cliente', key: 'cliente', width: 15 },
-        { header: 'Tipo de Venta', key: 'tipo_venta', width: 15 },
-        { header: 'Dirección', key: 'direccion', width: 15 },
+        { header: 'Nombre Cliente', key: 'cliente', width: 20 },
         { header: 'Teléfono', key: 'telefono', width: 15 },
-        { header: 'Combos', key: 'combos', width: 30 },
-        { header: 'Cantidad de Combos', key: 'cantidad_combos', width: 30 },
-        { header: 'Precio Unitario Combos', key: 'precio_combo', width: 30 },
-        { header: 'Productos', key: 'productos', width: 30 },
-        { header: 'Cantidad de Productos', key: 'cantidad_productos', width: 20 },
-        { header: 'Precio Unitario Productos', key: 'precio_producto', width: 25 },
-        { header: 'Método de Pago', key: 'modo_pago', width: 15 },
-        { header: 'Total Venta', key: 'total_venta', width: 15 }
+        { header: 'Dirección', key: 'direccion', width: 20 },
+        { header: 'Pedido', key: 'pedido', width: 30 },
+        { header: 'Unidades', key: 'unidades', width: 15 },
+        { header: 'Como Abono', key: 'abono', width: 15 },
+        { header: 'Envio', key: 'envio', width: 15 },
+        { header: 'Total', key: 'total', width: 15 }
     ];
 
     let totalGanancias = 0;
@@ -76,6 +74,7 @@ async function generarExcelGananciasDelDia(fecha) {
                 telefono: venta.telefono,
                 modo_pago: venta.modo_pago,
                 total_venta: venta.total_venta,
+                costo_envio: venta.costo_envio,
                 combos: [],
                 productos: [],
             };
@@ -102,31 +101,41 @@ async function generarExcelGananciasDelDia(fecha) {
 
     // Convertir a un array final para generar el Excel
     const ventasFinales = Object.values(ventasAgrupadas);
+
     // Agregar las filas a la hoja de trabajo
     ventasFinales.forEach(venta => {
+        let isFirstRow = true;
+
         // Combos
-        let combos = venta.combos.map(combo => combo.nombre).join(' | ');
-        let cantidadCombos = venta.combos.map(combo => combo.cantidad).join(' | ');
-        let precioCombo = venta.combos.map(combo => `$${combo.precio.toLocaleString()}`).join(' | ');
+        venta.combos.forEach(combo => {
+            const row = {
+                cliente: isFirstRow ? venta.cliente : '',
+                telefono: isFirstRow ? venta.telefono : '',
+                direccion: isFirstRow ? venta.direccion : '',
+                pedido: combo.nombre,
+                unidades: combo.cantidad,
+                abono: isFirstRow ? venta.modo_pago : '',
+                envio: isFirstRow ? `$${venta.costo_envio.toLocaleString()}` : '',
+                total: isFirstRow ? `$${venta.total_venta.toLocaleString()}` : ''
+            };
+            worksheet.addRow(row);
+            isFirstRow = false;
+        });
 
         // Productos
-        let productos = venta.productos.map(producto => producto.nombre).join(' | ');
-        let cantidadProductos = venta.productos.map(producto => producto.cantidad).join(' | '); 
-        let precioProducto = venta.productos.map(producto => `$${producto.precio.toLocaleString()}`).join(' | ');
-
-        worksheet.addRow({
-            cliente: venta.cliente,
-            tipo_venta: venta.direccion == 'local' ? 'Local' : "Delivery",
-            direccion: venta.direccion,
-            telefono: venta.telefono,
-            combos: combos,
-            cantidad_combos: cantidadCombos,
-            precio_combo: precioCombo,
-            productos: productos,
-            cantidad_productos: cantidadProductos,
-            precio_producto: precioProducto,
-            modo_pago: venta.modo_pago,
-            total_venta: `$${venta.total_venta.toLocaleString()}`
+        venta.productos.forEach(producto => {
+            const row = {
+                cliente: isFirstRow ? venta.cliente : '',
+                telefono: isFirstRow ? venta.telefono : '',
+                direccion: isFirstRow ? venta.direccion : '',
+                pedido: producto.nombre,
+                unidades: producto.cantidad,
+                abono: isFirstRow ? venta.modo_pago : '',
+                envio: isFirstRow ? `$${venta.costo_envio.toLocaleString()}` : '',
+                total: isFirstRow ? `$${venta.total_venta.toLocaleString()}` : ''
+            };
+            worksheet.addRow(row);
+            isFirstRow = false;
         });
 
         totalGanancias += parseFloat(venta.total_venta);
@@ -387,14 +396,14 @@ async function agregarProductoAOrden(idOrden, idProducto, cantidad) {
 }
 
 // Crear una nueva venta en la tabla `venta_producto`
-async function crearVentaProducto({ idOrden, cliente, telefono, direccion, metodoPago, total, fecha }) {
+async function crearVentaProducto({ idOrden, cliente, telefono, direccion, costoEnvio, metodoPago, total, fecha }) {
     const conn = await getConnection();
 
     const sql = `
-    INSERT INTO venta_producto (id_orden, nombre_cliente, telefono, direccion, modo_pago, total, fecha) 
-    VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    INSERT INTO venta_producto (id_orden, nombre_cliente, telefono, direccion, costo_envio, modo_pago, total, fecha) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
     
-    await conn.query(sql, [idOrden, cliente, telefono, direccion, metodoPago, total, fecha]);
+    await conn.query(sql, [idOrden, cliente, telefono, direccion, costoEnvio, metodoPago, total, fecha]);
 }
 
 // Actualizar las compras del cliente
@@ -453,7 +462,7 @@ async function agregarComboAOrden(idOrden, idCombo, cantidadCombo) {
 
 
 // Registrar una nueva venta
-async function registrarVenta({ productos, cliente, telefono, direccion, metodoPago, total, fecha }) {
+async function registrarVenta({ productos, cliente, telefono, direccion, costoEnvio, metodoPago, total, fecha }) {
     try {
         const idOrden = await crearOrden();
 
@@ -472,6 +481,7 @@ async function registrarVenta({ productos, cliente, telefono, direccion, metodoP
             cliente,
             telefono,
             direccion,
+            costoEnvio,
             metodoPago,
             total,
             fecha

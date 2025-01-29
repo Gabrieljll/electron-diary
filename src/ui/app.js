@@ -905,6 +905,7 @@ async function registrarNuevaVenta() {
     const telefono = document.getElementById('telefono').value;
     const direccion = document.getElementById('direccion').value;
     const metodoPago = document.getElementById('metodoPago').value;
+    const costoEnvio = parseFloat(document.getElementById('costoEnvio').value)
     const total = parseFloat(document.getElementById('totalConEnvio').textContent.replace('$', ''));
     const items = productosSeleccionados.map(item => ({
         id: item.id,
@@ -919,6 +920,10 @@ async function registrarNuevaVenta() {
     }
     if (!direccion) {
         Swal.fire('Error', 'Por favor ingresa una dirección válida.', 'error');
+        return;
+    }
+    if (isNaN(costoEnvio) || (costoEnvio !== 0 && !costoEnvio)) {
+        Swal.fire('Error', 'Por favor ingresa un costo de envío válido.', 'error');
         return;
     }
 
@@ -949,6 +954,7 @@ async function registrarNuevaVenta() {
             cliente,
             telefono,
             direccion,
+            costoEnvio,
             metodoPago,
             total,
             fecha: fechaFinal
