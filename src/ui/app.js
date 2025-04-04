@@ -1668,7 +1668,7 @@ async function mostrarVentas(tipo) {
         }, 0);
 
         // Formatear el total con separadores de miles
-        const totalFormateado = new Intl.NumberFormat('es-CL', {
+        const totalFormateado = new Intl.NumberFormat('es-AR', {
             style: 'currency',
             currency: 'ARS'
         }).format(total);
@@ -1681,9 +1681,9 @@ async function mostrarVentas(tipo) {
                     <p><strong>Total:</strong> ${totalFormateado}</p>
                     <p><strong>Fecha:</strong> ${formatearFecha(fechaSeleccionada)}</p>
                     ${ventasFiltradas.length > 0 ? `
-                    <p><strong>Promedio por venta:</strong> ${new Intl.NumberFormat('es-CL', {
+                    <p><strong>Promedio por venta:</strong> ${new Intl.NumberFormat('es-AR', {
                         style: 'currency',
-                        currency: 'CLP'
+                        currency: 'ARS'
                     }).format(total / ventasFiltradas.length)}</p>` : ''}
                 </div>
             `,
@@ -1773,6 +1773,14 @@ async function abrirModalVentasMes() {
         // Aquí puedes procesar la selección
         const datos = await cargarDatosVentas(formValues.tipo, 'mes', `${formValues.año}-${mesFormateado}`);
         
+        // Formatear el total como moneda ARS
+        const totalFormateado = new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: 'ARS',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(datos?.total || 0);
+        
         Swal.fire({
             title: `Ventas de ${meses[formValues.mes - 1]} de ${formValues.año}`,
             html: `
@@ -1780,7 +1788,7 @@ async function abrirModalVentasMes() {
                     <p><strong>Tipo:</strong> ${formValues.tipo === 'total' ? 'Todas las ventas' : 
                       formValues.tipo === 'local' ? 'Ventas en local' : 'Ventas por delivery'}</p>
                     <p><strong>Cantidad:</strong> ${datos?.cantidad || 0}</p>
-                    <p><strong>Monto total:</strong> $${datos?.total?.toFixed(2) || '0.00'}</p>
+                    <p><strong>Monto total:</strong> ${totalFormateado}</p>
                 </div>
             `,
             icon: 'info',
