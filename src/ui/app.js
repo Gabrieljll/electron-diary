@@ -1090,6 +1090,7 @@ async function eliminarVenta(idVenta) {
 // =======================================================
 async function mostrarVista(vista) {
     const divVentas = document.getElementById('divVentas');
+    const divBotonesVentas = document.getElementById('botonesDetalleVentas')
     const divStock = document.getElementById('divStock');
     const divCombos = document.getElementById('divCombos'); // Nueva vista
     const ventasButton = document.querySelector('.nav-buttons:nth-child(1)');
@@ -1099,6 +1100,7 @@ async function mostrarVista(vista) {
     if (vista === 'ventas') {
         window.location.reload();
         divVentas.style.display = 'flex';
+        divBotonesVentas.style.display = 'flex'
         divStock.style.display = 'none';
         divCombos.style.display = 'none';
         ventasButton.classList.add('active');
@@ -1114,6 +1116,7 @@ async function mostrarVista(vista) {
         } */
 
         divVentas.style.display = 'none';
+        divBotonesVentas.style.display = 'none'
         divStock.style.display = 'block';
         divCombos.style.display = 'none';
         await actualizarProductos();
@@ -1128,6 +1131,7 @@ async function mostrarVista(vista) {
         } */
 
         divVentas.style.display = 'none';
+        divBotonesVentas.style.display = 'none';
         divStock.style.display = 'none';
         divCombos.style.display = 'block';
         await actualizarCombos();
@@ -1563,26 +1567,268 @@ document.addEventListener('click', function(e) {
     }
 });
 
-document.getElementById('fechaVentas').addEventListener('change', (event) => {
-    const nuevaFecha = event.target.value;
-    const fechaVenta = document.getElementById('fechaVenta');
+// Configuración del event listener para el cambio de fecha
 
-    if (fechaVenta) {
-        fechaVenta.value = nuevaFecha;
-    }
-
-    cargarVentasPorFecha(nuevaFecha);
-});
-
-document.getElementById('fechaVenta').addEventListener('change', (event) => {
+document.getElementById('fechaVentas').addEventListener('change', async (event) => {
     const nuevaFecha = event.target.value;
     const fechaVentas = document.getElementById('fechaVentas');
 
     if (fechaVentas) {
         fechaVentas.value = nuevaFecha;
     }
+            await Promise.all([
+            cargarVentasPorFecha(nuevaFecha),
+            actualizarValoresVentas(nuevaFecha)
+        ]);
+});
 
-    cargarVentasPorFecha(nuevaFecha);
+// Función para obtener la fecha actual del input
+function obtenerFechaSeleccionada() {
+    return document.getElementById('fechaVentas').value;
+}
+
+
+// Función para cargar los datos de ventas desde el backend
+async function cargarDatosVentas(tipo, periodo) {
+    try {
+        // Aquí harías la llamada a tu backend
+        // Ejemplo con fetch:
+        const response = await fetch(`/api/ventas?tipo=${tipo}&periodo=${periodo}`);
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error al cargar datos de ventas:', error);
+        return null;
+    }
+}
+
+// Función para actualizar los contadores de ventas
+async function actualizarValoresVentas(fecha = null) {
+    try {
+        const fechaSeleccionada = fecha || obtenerFechaSeleccionada();
+        const ventasDelDia = await main.obtenerVentasPorFecha(fechaSeleccionada);
+        
+        // Calcular resúmenes
+        const totalVentas = ventasDelDia.length;
+        const ventasLocal = ventasDelDia.filter(v => v.direccion === 'local').length;
+        const ventasDelivery = ventasDelDia.filter(v => v.direccion !== 'local').length;
+        
+        // Actualizar los botones
+        document.getElementById('ventas-dia-total').textContent = totalVentas;
+        document.getElementById('ventas-dia-local').textContent = ventasLocal;
+        document.getElementById('ventas-dia-delivery').textContent = ventasDelivery;
+        
+    } catch (error) {
+        console.error('Error al actualizar contadores:', error);
+        document.getElementById('ventas-dia-total').textContent = 'Error';
+        document.getElementById('ventas-dia-local').textContent = 'Error';
+        document.getElementById('ventas-dia-delivery').textContent = 'Error';
+    }
+}
+
+async function mostrarVentas(tipo) {
+    try {
+        const fechaSeleccionada = obtenerFechaSeleccionada();
+        const ventasDelDia = await main.obtenerVentasPorFecha(fechaSeleccionada);
+
+        let ventasFiltradas = [];
+        let titulo = '';
+        
+        switch(tipo.toLowerCase()) { // Case insensitive
+            case 'total':
+                ventasFiltradas = [...ventasDelDia]; // Copia del array original
+                titulo = `Todas las ventas (${formatearFecha(fechaSeleccionada)})`;
+                break;
+                
+            case 'local':
+                ventasFiltradas = ventasDelDia.filter(v => {
+                    // Validación más estricta
+                    return v.direccion && v.direccion.toLowerCase() === 'local';
+                });
+                titulo = `Ventas en local (${formatearFecha(fechaSeleccionada)})`;
+                break;
+                
+            case 'delivery':
+                ventasFiltradas = ventasDelDia.filter(v => {
+                    // Cualquier cosa que no sea local (incluyendo null/undefined)
+                    return !v.direccion || v.direccion.toLowerCase() !== 'local';
+                });
+                titulo = `Ventas por delivery (${formatearFecha(fechaSeleccionada)})`;
+                break;
+                
+            default:
+                throw new Error(`Tipo de venta no reconocido: ${tipo}`);
+        }
+
+        // Cálculo seguro del total
+        const total = ventasFiltradas.reduce((sum, venta) => {
+            // Verifica que total exista y sea número
+            const valor = Number(venta.total) || 0;
+            return sum + valor;
+        }, 0);
+
+        // Formatear el total con separadores de miles
+        const totalFormateado = new Intl.NumberFormat('es-CL', {
+            style: 'currency',
+            currency: 'ARS'
+        }).format(total);
+
+        Swal.fire({
+            title: titulo,
+            html: `
+                <div style="text-align: left;">
+                    <p><strong>Cantidad:</strong> ${ventasFiltradas.length}</p>
+                    <p><strong>Total:</strong> ${totalFormateado}</p>
+                    <p><strong>Fecha:</strong> ${formatearFecha(fechaSeleccionada)}</p>
+                    ${ventasFiltradas.length > 0 ? `
+                    <p><strong>Promedio por venta:</strong> ${new Intl.NumberFormat('es-CL', {
+                        style: 'currency',
+                        currency: 'CLP'
+                    }).format(total / ventasFiltradas.length)}</p>` : ''}
+                </div>
+            `,
+            icon: 'info',
+            confirmButtonText: 'Cerrar'
+        });
+
+    } catch (error) {
+        console.error('Error en mostrarVentas:', error);
+        Swal.fire({
+            title: 'Error',
+            text: `No se pudieron cargar las ventas: ${error.message}`,
+            icon: 'error'
+        });
+    }
+}
+
+// Función auxiliar para formatear fecha
+function formatearFecha(fechaISO) {
+    const [año, mes, dia] = fechaISO.split('-');
+    return `${dia}/${mes}/${año}`;
+}
+
+// Función para abrir el modal de ventas del mes con SweetAlert (versión solo mes/año)
+async function abrirModalVentasMes() {
+    // Obtener el mes y año actual
+    const ahora = new Date();
+    const mesActual = ahora.getMonth() + 1; // Los meses van de 0 a 11
+    const añoActual = ahora.getFullYear();
+    
+    // Generar opciones de meses
+    const meses = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    
+    // Generar opciones de años (últimos 5 años y próximos 2)
+    const años = [];
+    for (let i = añoActual - 5; i <= añoActual + 2; i++) {
+        años.push(i);
+    }
+    
+    const { value: formValues } = await Swal.fire({
+        title: 'Seleccionar Ventas del Mes',
+        html: `
+            <label for="tipoVentas">Tipo de Venta:</label>
+            <select id="tipoVentas" class="swal2-select">
+                <option value="total">Todas las ventas</option>
+                <option value="local">Ventas en Local</option>
+                <option value="delivery">Ventas por Delivery</option>
+            </select>
+            
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <div style="flex: 1;">
+                    <label for="mesVentas">Mes:</label>
+                    <select id="mesVentas" class="swal2-select">
+                        ${meses.map((mes, index) => 
+                            `<option value="${index + 1}" ${index + 1 === mesActual ? 'selected' : ''}>${mes}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                
+                <div style="flex: 1;">
+                    <label for="añoVentas">Año:</label>
+                    <select id="añoVentas" class="swal2-select">
+                        ${años.map(año => 
+                            `<option value="${año}" ${año === añoActual ? 'selected' : ''}>${año}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+            </div>
+        `,
+        focusConfirm: false,
+        preConfirm: () => {
+            return {
+                tipo: document.getElementById('tipoVentas').value,
+                mes: document.getElementById('mesVentas').value,
+                año: document.getElementById('añoVentas').value
+            }
+        }
+    });
+
+    if (formValues) {
+        // Formatear el mes para que tenga siempre 2 dígitos
+        const mesFormateado = formValues.mes.toString().padStart(2, '0');
+        
+        // Aquí puedes procesar la selección
+        const datos = await cargarDatosVentas(formValues.tipo, 'mes', `${formValues.año}-${mesFormateado}`);
+        
+        Swal.fire({
+            title: `Ventas de ${meses[formValues.mes - 1]} de ${formValues.año}`,
+            html: `
+                <div style="text-align: left;">
+                    <p><strong>Tipo:</strong> ${formValues.tipo === 'total' ? 'Todas las ventas' : 
+                      formValues.tipo === 'local' ? 'Ventas en local' : 'Ventas por delivery'}</p>
+                    <p><strong>Cantidad:</strong> ${datos?.cantidad || 0}</p>
+                    <p><strong>Monto total:</strong> $${datos?.total?.toFixed(2) || '0.00'}</p>
+                </div>
+            `,
+            icon: 'info',
+            confirmButtonText: 'Cerrar'
+        });
+    }
+}
+
+// Función actualizada para cargar datos de ventas (con parámetro de fecha)
+async function cargarDatosVentas(tipo, periodo, fecha = null) {
+    try {
+        if (periodo === 'mes' && fecha) {
+            // Para consultas por mes, usar la nueva función
+            const [anio, mes] = fecha.split('-');
+            const data = await main.getVentasPorMesAnio(anio, mes, tipo);
+            return data;
+        } else {
+            // Para otros periodos (día), mantener tu lógica actual
+            const ventasDelDia = await main.obtenerVentasPorFecha(fecha);
+            
+            // Filtrar según el tipo
+            let ventasFiltradas = [];
+            if (tipo === 'local') {
+                ventasFiltradas = ventasDelDia.filter(v => v.direccion === 'local');
+            } else if (tipo === 'delivery') {
+                ventasFiltradas = ventasDelDia.filter(v => v.direccion !== 'local');
+            } else {
+                ventasFiltradas = ventasDelDia;
+            }
+            
+            return {
+                ventas: ventasFiltradas,
+                cantidad: ventasFiltradas.length,
+                monto_total: ventasFiltradas.reduce((sum, v) => sum + (Number(v.total) || 0), 0)
+            };
+        }
+    } catch (error) {
+        console.error('Error al cargar datos de ventas:', error);
+        return null;
+    }
+}
+
+// Cargar los valores iniciales al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    actualizarValoresVentas();
+    
+    // Opcional: Actualizar cada cierto tiempo (ej. cada 5 minutos)
+    setInterval(actualizarValoresVentas, 300000);
 });
 
 init();

@@ -696,6 +696,70 @@ async function buscarClientesByNombre(parteNombre){
     return resultado;
 }
 
+async function getVentasPorMesAnio(anio, mes, tipo = 'total') {
+    const conn = await getConnection();
+    
+    try {
+        // Validar parámetros
+        if (!anio || !mes) {
+            throw new Error('Debe proporcionar año y mes');
+        }
+
+        // Construir fecha inicial y final del mes
+        const fechaInicio = `${anio}-${mes.toString().padStart(2, '0')}-01`;
+        const fechaFin = `${anio}-${mes.toString().padStart(2, '0')}-31`; // Último día del mes
+
+        // Consulta base
+        let query = `
+            SELECT 
+                vp.id_orden AS id,
+                vp.nombre_cliente AS cliente,
+                vp.direccion,
+                vp.telefono,
+                vp.modo_pago,
+                vp.total,
+                DATE(vp.fecha) AS fecha,
+                TIME(vp.fecha) AS horario
+            FROM venta_producto vp
+            WHERE DATE(vp.fecha) BETWEEN ? AND ?
+        `;
+
+        // Agregar filtro por tipo si es necesario
+        const params = [fechaInicio, fechaFin];
+        if (tipo === 'local') {
+            query += ` AND vp.direccion = 'local'`;
+        } else if (tipo === 'delivery') {
+            query += ` AND vp.direccion != 'local'`;
+        }
+
+        query += ` ORDER BY vp.fecha`;
+
+        // Ejecutar consulta
+        const [ventas] = await conn.query(query, params);
+
+        // Procesar resultados para agrupar por día si es necesario
+        const ventasPorDia = {};
+        ventas.forEach(venta => {
+            const dia = venta.fecha.getDate();
+            if (!ventasPorDia[dia]) {
+                ventasPorDia[dia] = [];
+            }
+            ventasPorDia[dia].push(venta);
+        });
+
+        return {
+            ventas,
+            ventasPorDia,
+            total: ventas.reduce((sum, v) => sum + parseFloat(v.total), 0),
+            cantidad: ventas.length
+        };
+
+    } catch (error) {
+        console.error('Error en getVentasPorMesAnio:', error);
+        throw error;
+    }
+}
+
 let window;
 
 function createWindow() {
@@ -741,5 +805,6 @@ module.exports = {
     getComboById,
     actualizarCombo,
     borrarCombo,
-    buscarClientesByNombre
+    buscarClientesByNombre,
+    getVentasPorMesAnio
 };

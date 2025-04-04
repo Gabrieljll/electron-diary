@@ -8,6 +8,52 @@
     src: url("./fonts/Lora-Italic-VariableFont_wght.ttf");
   }
 
+  /*.botonesDetalleVentas{
+    display: flex;
+    width: 100%;
+    justify-content: flex-end;
+    align-items: center;
+  }*/
+
+        /* Estilo para los botones */
+        .botonesDetalleVentas {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: flex-end;
+        }
+
+        .boton-detalle {
+            width: 180px;
+            height: 50px;
+            font-size: 14px;
+            letter-spacing: 1px;
+            margin: 10px 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Sombra para darle profundidad */
+            transition: transform 0.2s ease-in-out, background-color 0.3s ease;
+        }
+
+        .boton-detalle:hover {
+            transform: translateY(-2px); /* Efecto hover */
+            background-color: #343a40; /* Color de fondo al pasar el ratón */
+        }
+
+        /* Estilo para el modal */
+        .modal-content {
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-header {
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+        }
+
   .firma{
     font-family: "ceremony";
     font-weight: bold;

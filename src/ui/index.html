@@ -40,7 +40,23 @@
                 </button>
             </div>
         </nav>
-    
+        <div id="botonesDetalleVentas" class="botonesDetalleVentas" style="display: flex;">
+            <button class="btn btn-dark boton-detalle" onclick="mostrarVentas('total')">
+                Ventas del día: <span id="ventas-dia-total">Cargando...</span>
+            </button>
+        
+            <button class="btn btn-dark boton-detalle" onclick="mostrarVentas('local')">
+                Ventas en local del día: <span id="ventas-dia-local">Cargando...</span>
+            </button>
+        
+            <button class="btn btn-dark boton-detalle" onclick="mostrarVentas('delivery')">
+                Ventas por delivery del día: <span id="ventas-dia-delivery">Cargando...</span>
+            </button>
+        
+            <button class="btn btn-dark boton-detalle" onclick="abrirModalVentasMes()">
+                Ventas del mes...
+            </button>
+        </div>
         <!-- Vista de Ventas -->
         <div id="divVentas" style="display: flex;">
             <div class="divRealizarVenta">
@@ -137,7 +153,7 @@
                 </div>
             </div>
 
-
+            
             <div class="divVentasRealizadas">
                 <h2>Ventas realizadas</h2>
                 
@@ -198,7 +214,7 @@
             <p class="firma">Desarrollado por<strong> Gabriel Leguizamón</strong></p>
         </div>
         <div style="display: flex; justify-content: center; align-items: center; margin-left: 1%; text-align: center; width: 100%;">
-            <span id="app-version">v1.3.0</span>
+            <span id="app-version">v1.4.0</span>
         </div>
     </footer>
 </body>
