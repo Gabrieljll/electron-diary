@@ -1967,6 +1967,7 @@ async function abrirModalVentasMes() {
             const mesFormateado = formValues.mes.toString().padStart(2, '0');
             const fechaConsulta = `${formValues.año}-${mesFormateado}`;
             
+            // Cargar datos iniciales sin filtro de pago
             const datos = await cargarDatosVentas(formValues.tipo, 'mes', fechaConsulta);
             
             if (!datos || datos.ventas.length === 0) {
@@ -1975,6 +1976,42 @@ async function abrirModalVentasMes() {
                     html: `No se encontraron ventas para ${meses[formValues.mes - 1]} de ${formValues.año}`,
                     icon: 'warning'
                 });
+            }
+
+            // Obtener medios de pago disponibles
+            const mediosPagoDisponibles = [...new Set(datos.ventas.map(v => {
+                if (!v.modo_pago) return null;
+                const modo = v.modo_pago.toLowerCase();
+                return modo === 'efectivo_y_otro' ? 'efectivo' : modo;
+            }))].filter(m => m && m !== 'desconocido');
+
+            // Ordenar los medios de pago
+            const ordenMediosPago = ['efectivo', 'debito', 'credito', 'transferencia'];
+            mediosPagoDisponibles.sort((a, b) => {
+                return ordenMediosPago.indexOf(a) - ordenMediosPago.indexOf(b);
+            });
+
+            // Crear dropdown HTML para filtros
+            let htmlDropdown = '';
+            if (mediosPagoDisponibles.length > 0) {
+                htmlDropdown = `
+                    <div style="margin: 15px 0;">
+                        <label for="medioPagoSelect" style="display: block; margin-bottom: 5px; font-weight: bold;">Filtrar por medio de pago:</label>
+                        <select id="medioPagoSelect" onchange="filtrarVentasMesPorPago('${formValues.tipo}', '${fechaConsulta}', this.value)" 
+                            style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                            <option value="">Todos los medios de pago</option>
+                            ${mediosPagoDisponibles.map(medio => {
+                                const nombreMedio = {
+                                    'debito': 'Débito',
+                                    'credito': 'Crédito',
+                                    'transferencia': 'Transferencia',
+                                    'efectivo': 'Efectivo'
+                                }[medio] || medio;
+                                return `<option value="${medio}">${nombreMedio}</option>`;
+                            }).join('')}
+                        </select>
+                    </div>
+                `;
             }
 
             const totalFormateado = new Intl.NumberFormat('es-AR', {
@@ -1988,10 +2025,16 @@ async function abrirModalVentasMes() {
                 title: `Ventas de ${meses[formValues.mes - 1]} de ${formValues.año}`,
                 html: `
                     <div style="text-align: left;">
+                        ${htmlDropdown}
                         <p><strong>Tipo:</strong> ${formValues.tipo === 'total' ? 'Todas las ventas' : 
                           formValues.tipo === 'local' ? 'Ventas en local' : 'Ventas por delivery'}</p>
                         <p><strong>Cantidad:</strong> ${datos.cantidad}</p>
                         <p><strong>Monto total:</strong> ${totalFormateado}</p>
+                        ${datos.ventas.length > 0 ? `
+                        <p><strong>Promedio por venta:</strong> ${new Intl.NumberFormat('es-AR', {
+                            style: 'currency',
+                            currency: 'ARS'
+                        }).format(datos.monto_total / datos.cantidad)}</p>` : ''}
                     </div>
                 `,
                 icon: 'info',
@@ -2003,6 +2046,132 @@ async function abrirModalVentasMes() {
         Swal.fire({
             title: 'Error',
             text: 'No se pudieron cargar las ventas. Por favor, intente nuevamente.',
+            icon: 'error'
+        });
+    }
+}
+
+// Nueva función para filtrar ventas mensuales por medio de pago
+async function filtrarVentasMesPorPago(tipo, fechaConsulta, medioPago) {
+    try {
+        Swal.showLoading();
+        
+        // Cargar datos sin filtrar primero
+        const datos = await cargarDatosVentas(tipo, 'mes', fechaConsulta);
+        
+        if (!datos || datos.ventas.length === 0) {
+            return;
+        }
+
+        // Aplicar filtro por medio de pago si se especificó
+        let ventasFiltradas = datos.ventas;
+        let montoTotal = datos.monto_total;
+        let cantidad = datos.cantidad;
+        
+        if (medioPago) {
+            const medioPagoLower = medioPago.toLowerCase();
+            ventasFiltradas = ventasFiltradas.filter(v => {
+                if (!v.modo_pago) return false;
+                
+                const modoPagoVenta = v.modo_pago.toLowerCase();
+                
+                if (medioPagoLower === 'efectivo') {
+                    return modoPagoVenta === 'efectivo' || modoPagoVenta === 'efectivo_y_otro';
+                }
+                
+                return modoPagoVenta === medioPagoLower;
+            });
+            
+            montoTotal = ventasFiltradas.reduce((sum, v) => sum + (Number(v.total) || 0), 0);
+            cantidad = ventasFiltradas.length;
+        }
+
+        // Obtener medios de pago disponibles (pueden cambiar después de filtrar)
+        const mediosPagoDisponibles = [...new Set(datos.ventas.map(v => {
+            if (!v.modo_pago) return null;
+            const modo = v.modo_pago.toLowerCase();
+            return modo === 'efectivo_y_otro' ? 'efectivo' : modo;
+        }))].filter(m => m && m !== 'desconocido');
+
+        // Ordenar los medios de pago
+        const ordenMediosPago = ['efectivo', 'debito', 'credito', 'transferencia'];
+        mediosPagoDisponibles.sort((a, b) => {
+            return ordenMediosPago.indexOf(a) - ordenMediosPago.indexOf(b);
+        });
+
+        // Crear dropdown HTML para filtros
+        let htmlDropdown = '';
+        if (mediosPagoDisponibles.length > 0) {
+            htmlDropdown = `
+                <div style="margin: 15px 0;">
+                    <label for="medioPagoSelect" style="display: block; margin-bottom: 5px; font-weight: bold;">Filtrar por medio de pago:</label>
+                    <select id="medioPagoSelect" onchange="filtrarVentasMesPorPago('${tipo}', '${fechaConsulta}', this.value)" 
+                        style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                        <option value="">Todos los medios de pago</option>
+                        ${mediosPagoDisponibles.map(medio => {
+                            const nombreMedio = {
+                                'debito': 'Débito',
+                                'credito': 'Crédito',
+                                'transferencia': 'Transferencia',
+                                'efectivo': 'Efectivo'
+                            }[medio] || medio;
+                            const selected = medio === medioPago ? 'selected' : '';
+                            return `<option value="${medio}" ${selected}>${nombreMedio}</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+            `;
+        }
+
+        const [anio, mes] = fechaConsulta.split('-');
+        const meses = [
+            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ];
+        
+        const totalFormateado = new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: 'ARS',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(montoTotal);
+        
+        let titulo = `Ventas de ${meses[parseInt(mes) - 1]} de ${anio}`;
+        if (medioPago) {
+            const nombresMediosPago = {
+                'debito': 'Débito',
+                'credito': 'Crédito',
+                'transferencia': 'Transferencia',
+                'efectivo': 'Efectivo'
+            };
+            titulo += ` - Medio: ${nombresMediosPago[medioPago.toLowerCase()] || medioPago}`;
+        }
+        
+        Swal.fire({
+            title: titulo,
+            html: `
+                <div style="text-align: left;">
+                    ${htmlDropdown}
+                    <p><strong>Tipo:</strong> ${tipo === 'total' ? 'Todas las ventas' : 
+                      tipo === 'local' ? 'Ventas en local' : 'Ventas por delivery'}</p>
+                    <p><strong>Cantidad:</strong> ${cantidad}</p>
+                    <p><strong>Monto total:</strong> ${totalFormateado}</p>
+                    ${ventasFiltradas.length > 0 ? `
+                    <p><strong>Promedio por venta:</strong> ${new Intl.NumberFormat('es-AR', {
+                        style: 'currency',
+                        currency: 'ARS'
+                    }).format(montoTotal / cantidad)}</p>` : ''}
+                </div>
+            `,
+            icon: 'info',
+            confirmButtonText: 'Cerrar'
+        });
+
+    } catch (error) {
+        console.error("Error al filtrar ventas:", error);
+        Swal.fire({
+            title: 'Error',
+            text: 'No se pudieron filtrar las ventas. Por favor, intente nuevamente.',
             icon: 'error'
         });
     }
