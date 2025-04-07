@@ -34,12 +34,19 @@
                 </button>
             </div>
             <div class="div-botones-nav">
+                <button class="btn btn-light nav-buttons" onclick="mostrarVista('configuracion')">
+                    <img class="iconosNavegacion" src="./img/iconos/icono-ajustes.png" alt="configuraciones">
+                    Ajustes Comerciales
+                </button>
+            </div>
+            <div class="div-botones-nav">
                 <button class="btn btn-light nav-buttons" style="font-size: 1.2rem;" onclick="descargarExcelComprasRealizadas('stock')">
                     <img class="iconosNavegacion" src="./img/iconos/icons8-ms-excel-48.png" alt="excel">
                         Compras de clientes
                 </button>
             </div>
         </nav>
+        <!-- Botones de la vista de Ventas -->
         <div id="botonesDetalleVentas" class="botonesDetalleVentas" style="display: flex;">
             <button class="btn btn-dark boton-detalle" onclick="mostrarVentas('total')">
                 Ventas del día: <span id="ventas-dia-total">Cargando...</span>
@@ -149,6 +156,12 @@
                         <ul id="listaResumen" class="list-group">
                             <!-- Aquí se agregarán los productos y cantidades seleccionadas -->
                         </ul>
+                        <div id="desgloseRecargo" style="display: none; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                            <p><strong>Desglose:</strong></p>
+                            <p>Subtotal: <span id="subtotal">$0.00</span></p>
+                            <p>Recargo: <span id="montoRecargo">$0.00</span> (<span id="porcentajeRecargo">0</span>%)</p>
+                            <p>Total: <span id="totalFinal">$0.00</span></p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -208,13 +221,32 @@
             </div>
         </div>
 
+        <!-- Vista de Configuraciones -->
+        <div id="divConfiguraciones" style="display: none;">
+            <div class="row">
+                <div class="divTituloConfiguraciones">
+                    <h2>Configuraciones</h2>
+                </div>
+                <div class="divBotonesConfiguraciones">
+                    <button onclick="abrirModalConfigurarRecargos()" class="btn btn-light btn-lg config-buttons" onclick="mostrarVista('configuracion')">
+                        <img class="iconosConfig" src="./img/iconos/tarjetas-de-credito.png" alt="configuraciones">
+                        Recargos
+                    </button>
+                    <button onclick="abrirModalConfigurarDescuentos()" class="btn btn-light btn-lg config-buttons" onclick="mostrarVista('configuracion')">
+                        <img class="iconosConfig" src="./img/iconos/promocion.png" alt="configuraciones">
+                        Descuentos
+                    </button>
+                </div>
+            </div>
+        </div>
+
     </main>
     <footer>
         <div style="display: flex; justify-content: center; align-items: center; margin-left: 1%; text-align: center; width: 100%;">
             <p class="firma">Desarrollado por<strong> Gabriel Leguizamón</strong></p>
         </div>
         <div style="display: flex; justify-content: center; align-items: center; margin-left: 1%; text-align: center; width: 100%;">
-            <span id="app-version">v1.4.0</span>
+            <span id="app-version">v1.5.0</span>
         </div>
     </footer>
 </body>

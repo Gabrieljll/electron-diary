@@ -700,16 +700,10 @@ async function getVentasPorMesAnio(anio, mes, tipo = 'total') {
     const conn = await getConnection();
     
     try {
-        // Validar parámetros
-        if (!anio || !mes) {
-            throw new Error('Debe proporcionar año y mes');
-        }
-
-        // Construir fecha inicial y final del mes
         const fechaInicio = `${anio}-${mes.toString().padStart(2, '0')}-01`;
-        const fechaFin = `${anio}-${mes.toString().padStart(2, '0')}-31`; // Último día del mes
+        const ultimoDia = new Date(anio, mes, 0).getDate();
+        const fechaFin = `${anio}-${mes.toString().padStart(2, '0')}-${ultimoDia}`;
 
-        // Consulta base
         let query = `
             SELECT 
                 vp.id_orden AS id,
@@ -724,8 +718,8 @@ async function getVentasPorMesAnio(anio, mes, tipo = 'total') {
             WHERE DATE(vp.fecha) BETWEEN ? AND ?
         `;
 
-        // Agregar filtro por tipo si es necesario
         const params = [fechaInicio, fechaFin];
+        
         if (tipo === 'local') {
             query += ` AND vp.direccion = 'local'`;
         } else if (tipo === 'delivery') {
@@ -734,30 +728,64 @@ async function getVentasPorMesAnio(anio, mes, tipo = 'total') {
 
         query += ` ORDER BY vp.fecha`;
 
-        // Ejecutar consulta
         const [ventas] = await conn.query(query, params);
-
-        // Procesar resultados para agrupar por día si es necesario
-        const ventasPorDia = {};
-        ventas.forEach(venta => {
-            const dia = venta.fecha.getDate();
-            if (!ventasPorDia[dia]) {
-                ventasPorDia[dia] = [];
-            }
-            ventasPorDia[dia].push(venta);
-        });
 
         return {
             ventas,
-            ventasPorDia,
-            total: ventas.reduce((sum, v) => sum + parseFloat(v.total), 0),
-            cantidad: ventas.length
+            cantidad: ventas.length,
+            total: ventas.reduce((sum, v) => sum + parseFloat(v.total || 0), 0)
         };
 
     } catch (error) {
-        console.error('Error en getVentasPorMesAnio:', error);
+        console.error("Error en getVentasPorMesAnio:", error);
         throw error;
     }
+}
+
+// Función para obtener recargos desde la base de datos
+async function obtenerRecargos() {
+    try {
+        const conn = await getConnection();
+        const [rows] = await conn.query('SELECT * FROM recargos');
+        
+        // Convertir a objeto { credito: X, debito: Y }
+        const recargos = {
+            credito: rows.find(r => r.metodo_pago === 'credito')?.porcentaje_recargo || 0,
+            debito: rows.find(r => r.metodo_pago === 'debito')?.porcentaje_recargo || 0
+        };
+        
+        return recargos;
+    } catch (error) {
+        console.error('Error al obtener recargos:', error);
+        return { credito: 0, debito: 0 }; // Valores por defecto
+    }
+}
+
+// Función para guardar recargos
+async function guardarRecargos(credito, debito) {
+    try {
+        const conn = await getConnection();
+        
+        await conn.query(
+            'UPDATE recargos SET porcentaje_recargo = ? WHERE metodo_pago = ?',
+            [credito, 'credito']
+        );
+        
+        await conn.query(
+            'UPDATE recargos SET porcentaje_recargo = ? WHERE metodo_pago = ?',
+            [debito, 'debito']
+        );
+        
+        return true;
+    } catch (error) {
+        console.error('Error al guardar recargos:', error);
+        return false;
+    }
+}
+
+// Función para guardar recargos
+async function guardarDescuentos(credito, debito) {
+    return true
 }
 
 let window;
@@ -784,7 +812,8 @@ function createWindow() {
 
 module.exports = {
     createWindow,
-
+    obtenerRecargos,
+    guardarRecargos,
     nuevoProducto,
     getProductos,
     borrarRegistroProducto,
@@ -806,5 +835,6 @@ module.exports = {
     actualizarCombo,
     borrarCombo,
     buscarClientesByNombre,
-    getVentasPorMesAnio
+    getVentasPorMesAnio,
+    guardarDescuentos
 };

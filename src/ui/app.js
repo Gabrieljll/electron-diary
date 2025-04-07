@@ -15,6 +15,7 @@ let fechaFiltroSeleccionada = '';
 let filtroTexto = '';
 let filtroTextoCombo = '';
 let productosSeleccionados = [];
+let recargosActuales = { credito: 0, debito: 0 };
 
 
 // Obtiene el contenedor de la tabla
@@ -285,6 +286,7 @@ async function agregarProductoVenta() {
 
         // Actualizar el resumen de productos
         actualizarResumenVenta();
+        actualizarTotalConEnvio()
     } catch (error) {
         console.error('Error al agregar producto/combo a la venta:', error);
         Swal.fire('Error', 'Hubo un problema al agregar el producto/combo a la venta.', 'error');
@@ -900,13 +902,30 @@ async function registrarNuevaVenta() {
         fechaFinal = formatearFechaLocal(fechaActual);
     }
 
-
     const cliente = document.getElementById('nombreCliente').value;
     const telefono = document.getElementById('telefono').value;
     const direccion = document.getElementById('direccion').value;
     const metodoPago = document.getElementById('metodoPago').value;
-    const costoEnvio = parseFloat(document.getElementById('costoEnvio').value)
-    const total = parseFloat(document.getElementById('totalConEnvio').textContent.replace('$', ''));
+    const costoEnvio = parseFloat(document.getElementById('costoEnvio').value) || 0;
+    const totalConRecargo = parseFloat(document.getElementById('totalConEnvio').textContent.replace('$', '')) || 0;
+    
+    // Obtener recargos actuales
+    const { credito, debito } = await obtenerRecargosActuales();
+    // Calcular total sin recargo (base para comisiones)
+    let totalSinRecargo = totalConRecargo;
+    let montoRecargo = 0;
+    let porcentajeRecargo = 0;
+
+    if (metodoPago === 'credito') {
+        porcentajeRecargo = credito;
+        totalSinRecargo = totalConRecargo / (1 + (credito / 100));
+        montoRecargo = totalConRecargo - totalSinRecargo;
+    } else if (metodoPago === 'debito') {
+        porcentajeRecargo = debito;
+        totalSinRecargo = totalConRecargo / (1 + (debito / 100));
+        montoRecargo = totalConRecargo - totalSinRecargo;
+    }
+
     const items = productosSeleccionados.map(item => ({
         id: item.id,
         tipo: item.tipo, // "producto" o "combo"
@@ -922,7 +941,7 @@ async function registrarNuevaVenta() {
         Swal.fire('Error', 'Por favor ingresa una dirección válida.', 'error');
         return;
     }
-    if (isNaN(costoEnvio) || (costoEnvio !== 0 && !costoEnvio)) {
+    if (isNaN(costoEnvio)) {
         Swal.fire('Error', 'Por favor ingresa un costo de envío válido.', 'error');
         return;
     }
@@ -956,11 +975,17 @@ async function registrarNuevaVenta() {
             direccion,
             costoEnvio,
             metodoPago,
-            total,
+            total: totalConRecargo,
             fecha: fechaFinal
         });
 
-        Swal.fire('Venta registrada', 'La venta se ha registrado correctamente y el stock ha sido actualizado.', 'success');
+        Swal.fire({
+            title: 'Venta registrada',
+            html: `La venta se ha registrado correctamente.<br>
+                  ${montoRecargo > 0 ? `Recargo aplicado (${porcentajeRecargo}%): $${montoRecargo.toFixed(2)}<br>` : ''}
+                  Total: $${totalConRecargo.toFixed(2)}`,
+            icon: 'success'
+        });
 
         // Limpiar formulario y productos seleccionados
         document.getElementById('nombreCliente').value = '';
@@ -971,16 +996,13 @@ async function registrarNuevaVenta() {
         document.getElementById('costoEnvio').value = 0;
         document.getElementById('costoEnvio').disabled = true;
         document.getElementById('cantidadProducto').value = '';
-        document.getElementById('metodoPago').value = '';
+        document.getElementById('metodoPago').value = 'efectivo'; // Resetear a efectivo
+        document.getElementById('desgloseRecargo').style.display = 'none';
         productosSeleccionados = [];
 
         actualizarResumenVenta();
 
         // Actualizar la lista de ventas y productos
-/*         const fechaHoy = new Date();
-        const fechaFormateada = fechaHoy.getFullYear() + '-' 
-            + (fechaHoy.getMonth() + 1).toString().padStart(2, '0') + '-' 
-            + fechaHoy.getDate().toString().padStart(2, '0'); */
         await actualizarProductos();
         await cargarVentasPorFecha(fechaVentaSeleccionada);
     } catch (error) {
@@ -989,6 +1011,23 @@ async function registrarNuevaVenta() {
     }
 }
 
+// Función auxiliar para obtener recargos actuales
+async function obtenerRecargosActuales() {
+    try {
+        // 1. Obtener datos del backend
+        const recargos = await main.obtenerRecargos();
+        
+        // 2. Validar y retornar con valores por defecto
+        return {
+            credito: recargos?.credito || 0,  // Si recargos.credito es undefined/null, usa 0
+            debito: recargos?.debito || 0     // Si recargos.debito es undefined/null, usa 0
+        };
+        
+    } catch (error) {
+        console.error('Error al obtener recargos:', error);
+        return { credito: 0, debito: 0 }; // Retorno seguro en caso de error
+    }
+}
 
 async function cargarVentasPorFecha(fecha = null) {
     const fechaSeleccionada = fecha || document.getElementById('fechaVentas').value;
@@ -1091,6 +1130,7 @@ async function eliminarVenta(idVenta) {
 async function mostrarVista(vista) {
     const divVentas = document.getElementById('divVentas');
     const divBotonesVentas = document.getElementById('botonesDetalleVentas')
+    const divConfiguraciones = document.getElementById('divConfiguraciones')
     const divStock = document.getElementById('divStock');
     const divCombos = document.getElementById('divCombos'); // Nueva vista
     const ventasButton = document.querySelector('.nav-buttons:nth-child(1)');
@@ -1103,6 +1143,7 @@ async function mostrarVista(vista) {
         divBotonesVentas.style.display = 'flex'
         divStock.style.display = 'none';
         divCombos.style.display = 'none';
+        divConfiguraciones.style.display = 'none';
         ventasButton.classList.add('active');
         stockButton.classList.remove('active');
         combosButton.classList.remove('active');
@@ -1119,6 +1160,7 @@ async function mostrarVista(vista) {
         divBotonesVentas.style.display = 'none'
         divStock.style.display = 'block';
         divCombos.style.display = 'none';
+        divConfiguraciones.style.display = 'none';
         await actualizarProductos();
         ventasButton.classList.remove('active');
         stockButton.classList.add('active');
@@ -1133,11 +1175,18 @@ async function mostrarVista(vista) {
         divVentas.style.display = 'none';
         divBotonesVentas.style.display = 'none';
         divStock.style.display = 'none';
+        divConfiguraciones. style.display = 'none';
         divCombos.style.display = 'block';
         await actualizarCombos();
         ventasButton.classList.remove('active');
         stockButton.classList.remove('active');
         combosButton.classList.add('active');
+    } else if (vista === 'configuracion') {
+        divConfiguraciones. style.display = 'block';
+        divVentas.style.display = 'none';
+        divBotonesVentas.style.display = 'none';
+        divStock.style.display = 'none';
+        divCombos.style.display = 'none';
     }
 }
 
@@ -1149,9 +1198,6 @@ function validarStock() {
     const inputProducto = document.getElementById('inputProducto');
     const inputCantidad = document.getElementById('cantidadProducto');
     
-    console.log("lala")
-    console.log(inputProducto)
-
     // Verificar si los elementos existen
     if (!inputProducto) {
         console.error('No se encontró el elemento inputProducto en el DOM.');
@@ -1211,6 +1257,7 @@ function actualizarResumenVenta() {
     // Actualizar el total (si es necesario)
     const total = productosSeleccionados.reduce((acc, producto) => acc + (producto.precio * producto.cantidad), 0);
     document.getElementById('totalConEnvio').textContent = `$${total.toFixed(2)}`;
+    actualizarTotalConEnvio()
 }
 
 // Función para actualizar los precios de todos los productos seleccionados
@@ -1329,6 +1376,7 @@ async function actualizarPreciosProductos(precioTipo) {
 function quitarProducto(index) {
     productosSeleccionados.splice(index, 1);
     actualizarResumenVenta();
+    actualizarTotalConEnvio()
 }
 
 function calcularTotalProductos() {
@@ -1339,8 +1387,8 @@ function actualizarTotalConEnvio() {
     const costoEnvio = parseFloat(document.getElementById('costoEnvio').value) || 0;
     const totalProductos = calcularTotalProductos();
     const totalConEnvio = totalProductos + costoEnvio;
-
     document.getElementById('totalConEnvio').textContent = `$${totalConEnvio.toFixed(2)}`;
+    calcularTotalConRecargo()
 }
 
 // Llamar a la función cuando se carga la página
@@ -1568,11 +1616,22 @@ document.addEventListener('click', function(e) {
 });
 
 // Configuración del event listener para el cambio de fecha
-
 document.getElementById('fechaVentas').addEventListener('change', async (event) => {
     const nuevaFecha = event.target.value;
     const fechaVentas = document.getElementById('fechaVentas');
+    document.getElementById("fechaVenta").value = nuevaFecha
+    if (fechaVentas) {
+        fechaVentas.value = nuevaFecha;
+    }
+            await Promise.all([
+            cargarVentasPorFecha(nuevaFecha),
+            actualizarValoresVentas(nuevaFecha)
+        ]);
+});
 
+document.getElementById('fechaVenta').addEventListener('change', async (event) => {
+    const nuevaFecha = event.target.value;
+    const fechaVentas = document.getElementById('fechaVentas');
     if (fechaVentas) {
         fechaVentas.value = nuevaFecha;
     }
@@ -1634,15 +1693,14 @@ async function mostrarVentas(tipo) {
         let ventasFiltradas = [];
         let titulo = '';
         
-        switch(tipo.toLowerCase()) { // Case insensitive
+        switch(tipo.toLowerCase()) {
             case 'total':
-                ventasFiltradas = [...ventasDelDia]; // Copia del array original
+                ventasFiltradas = [...ventasDelDia];
                 titulo = `Todas las ventas (${formatearFecha(fechaSeleccionada)})`;
                 break;
                 
             case 'local':
                 ventasFiltradas = ventasDelDia.filter(v => {
-                    // Validación más estricta
                     return v.direccion && v.direccion.toLowerCase() === 'local';
                 });
                 titulo = `Ventas en local (${formatearFecha(fechaSeleccionada)})`;
@@ -1650,7 +1708,6 @@ async function mostrarVentas(tipo) {
                 
             case 'delivery':
                 ventasFiltradas = ventasDelDia.filter(v => {
-                    // Cualquier cosa que no sea local (incluyendo null/undefined)
                     return !v.direccion || v.direccion.toLowerCase() !== 'local';
                 });
                 titulo = `Ventas por delivery (${formatearFecha(fechaSeleccionada)})`;
@@ -1660,36 +1717,44 @@ async function mostrarVentas(tipo) {
                 throw new Error(`Tipo de venta no reconocido: ${tipo}`);
         }
 
-        // Cálculo seguro del total
-        const total = ventasFiltradas.reduce((sum, venta) => {
-            // Verifica que total exista y sea número
-            const valor = Number(venta.total) || 0;
-            return sum + valor;
-        }, 0);
+        // Obtener medios de pago disponibles
+        const mediosPagoDisponibles = [...new Set(ventasDelDia.map(v => {
+            if (!v.modo_pago) return null;
+            const modo = v.modo_pago.toLowerCase();
+            return modo === 'efectivo_y_otro' ? 'efectivo' : modo;
+        }))].filter(m => m && m !== 'desconocido');
 
-        // Formatear el total con separadores de miles
-        const totalFormateado = new Intl.NumberFormat('es-AR', {
-            style: 'currency',
-            currency: 'ARS'
-        }).format(total);
-
-        Swal.fire({
-            title: titulo,
-            html: `
-                <div style="text-align: left;">
-                    <p><strong>Cantidad:</strong> ${ventasFiltradas.length}</p>
-                    <p><strong>Total:</strong> ${totalFormateado}</p>
-                    <p><strong>Fecha:</strong> ${formatearFecha(fechaSeleccionada)}</p>
-                    ${ventasFiltradas.length > 0 ? `
-                    <p><strong>Promedio por venta:</strong> ${new Intl.NumberFormat('es-AR', {
-                        style: 'currency',
-                        currency: 'ARS'
-                    }).format(total / ventasFiltradas.length)}</p>` : ''}
-                </div>
-            `,
-            icon: 'info',
-            confirmButtonText: 'Cerrar'
+        // Ordenar los medios de pago
+        const ordenMediosPago = ['efectivo', 'debito', 'credito', 'transferencia'];
+        mediosPagoDisponibles.sort((a, b) => {
+            return ordenMediosPago.indexOf(a) - ordenMediosPago.indexOf(b);
         });
+
+        // Crear dropdown HTML
+        let htmlDropdown = '';
+        if (mediosPagoDisponibles.length > 0) {
+            htmlDropdown = `
+                <div style="margin: 15px 0;">
+                    <label for="medioPagoSelect" style="display: block; margin-bottom: 5px; font-weight: bold;">Filtrar por medio de pago:</label>
+                    <select id="medioPagoSelect" onchange="filtrarVentasPorPago('${tipo}', this.value)" 
+                        style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                        <option value="">Todos los medios de pago</option>
+                        ${mediosPagoDisponibles.map(medio => {
+                            const nombreMedio = {
+                                'debito': 'Débito',
+                                'credito': 'Crédito',
+                                'transferencia': 'Transferencia',
+                                'efectivo': 'Efectivo'
+                            }[medio] || medio;
+                            return `<option value="${medio}">${nombreMedio}</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+            `;
+        }
+
+        // Mostrar datos iniciales
+        mostrarDatosVentas(ventasFiltradas, titulo, htmlDropdown, fechaSeleccionada);
 
     } catch (error) {
         console.error('Error en mostrarVentas:', error);
@@ -1701,122 +1766,284 @@ async function mostrarVentas(tipo) {
     }
 }
 
-// Función auxiliar para formatear fecha
+// Función para filtrar por medio de pago
+async function filtrarVentasPorPago(tipo, medioPago) {
+    try {
+        const fechaSeleccionada = obtenerFechaSeleccionada();
+        const ventasDelDia = await main.obtenerVentasPorFecha(fechaSeleccionada);
+
+        let ventasFiltradas = [];
+        let titulo = '';
+        
+        switch(tipo.toLowerCase()) {
+            case 'total':
+                ventasFiltradas = [...ventasDelDia];
+                titulo = `Todas las ventas (${formatearFecha(fechaSeleccionada)})`;
+                break;
+                
+            case 'local':
+                ventasFiltradas = ventasDelDia.filter(v => {
+                    return v.direccion && v.direccion.toLowerCase() === 'local';
+                });
+                titulo = `Ventas en local (${formatearFecha(fechaSeleccionada)})`;
+                break;
+                
+            case 'delivery':
+                ventasFiltradas = ventasDelDia.filter(v => {
+                    return !v.direccion || v.direccion.toLowerCase() !== 'local';
+                });
+                titulo = `Ventas por delivery (${formatearFecha(fechaSeleccionada)})`;
+                break;
+        }
+
+        // Aplicar filtro por medio de pago si se especificó
+        if (medioPago) {
+            const medioPagoLower = medioPago.toLowerCase();
+            ventasFiltradas = ventasFiltradas.filter(v => {
+                if (!v.modo_pago) return false;
+                
+                const modoPagoVenta = v.modo_pago.toLowerCase();
+                
+                if (medioPagoLower === 'efectivo') {
+                    return modoPagoVenta === 'efectivo' || modoPagoVenta === 'efectivo_y_otro';
+                }
+                
+                return modoPagoVenta === medioPagoLower;
+            });
+            
+            const nombresMediosPago = {
+                'debito': 'Débito',
+                'credito': 'Crédito',
+                'transferencia': 'Transferencia',
+                'efectivo': 'Efectivo'
+            };
+            
+            titulo += ` - Medio: ${nombresMediosPago[medioPagoLower] || medioPago}`;
+        }
+
+        // Volver a generar el dropdown
+        const mediosPagoDisponibles = [...new Set(ventasDelDia.map(v => {
+            if (!v.modo_pago) return null;
+            const modo = v.modo_pago.toLowerCase();
+            return modo === 'efectivo_y_otro' ? 'efectivo' : modo;
+        }))].filter(m => m && m !== 'desconocido');
+
+        const ordenMediosPago = ['efectivo', 'debito', 'credito', 'transferencia'];
+        mediosPagoDisponibles.sort((a, b) => {
+            return ordenMediosPago.indexOf(a) - ordenMediosPago.indexOf(b);
+        });
+
+        let htmlDropdown = '';
+        if (mediosPagoDisponibles.length > 0) {
+            htmlDropdown = `
+                <div style="margin: 15px 0;">
+                    <label for="medioPagoSelect" style="display: block; margin-bottom: 5px; font-weight: bold;">Filtrar por medio de pago:</label>
+                    <select id="medioPagoSelect" onchange="filtrarVentasPorPago('${tipo}', this.value)" 
+                        style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                        <option value="">Todos los medios de pago</option>
+                        ${mediosPagoDisponibles.map(medio => {
+                            const nombreMedio = {
+                                'debito': 'Débito',
+                                'credito': 'Crédito',
+                                'transferencia': 'Transferencia',
+                                'efectivo': 'Efectivo'
+                            }[medio] || medio;
+                            const selected = medio === medioPago ? 'selected' : '';
+                            return `<option value="${medio}" ${selected}>${nombreMedio}</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+            `;
+        }
+
+        mostrarDatosVentas(ventasFiltradas, titulo, htmlDropdown, fechaSeleccionada);
+
+    } catch (error) {
+        console.error('Error en filtrarVentasPorPago:', error);
+        Swal.fire({
+            title: 'Error',
+            text: `No se pudieron filtrar las ventas: ${error.message}`,
+            icon: 'error'
+        });
+    }
+}
+
+// Función auxiliar para mostrar los datos
+function mostrarDatosVentas(ventasFiltradas, titulo, htmlDropdown, fechaSeleccionada) {
+    const total = ventasFiltradas.reduce((sum, venta) => {
+        const valor = Number(venta.total) || 0;
+        return sum + valor;
+    }, 0);
+
+    const totalFormateado = new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: 'ARS'
+    }).format(total);
+
+    Swal.fire({
+        title: titulo,
+        html: `
+            <div style="text-align: left;">
+                ${htmlDropdown}
+                <p><strong>Cantidad:</strong> ${ventasFiltradas.length}</p>
+                <p><strong>Total:</strong> ${totalFormateado}</p>
+                <p><strong>Fecha:</strong> ${formatearFecha(fechaSeleccionada)}</p>
+                ${ventasFiltradas.length > 0 ? `
+                <p><strong>Promedio por venta:</strong> ${new Intl.NumberFormat('es-AR', {
+                    style: 'currency',
+                    currency: 'ARS'
+                }).format(total / ventasFiltradas.length)}</p>` : ''}
+            </div>
+        `,
+        icon: 'info',
+        confirmButtonText: 'Cerrar'
+    });
+}
+
 function formatearFecha(fechaISO) {
     const [año, mes, dia] = fechaISO.split('-');
     return `${dia}/${mes}/${año}`;
 }
 
-// Función para abrir el modal de ventas del mes con SweetAlert (versión solo mes/año)
 async function abrirModalVentasMes() {
-    // Obtener el mes y año actual
-    const ahora = new Date();
-    const mesActual = ahora.getMonth() + 1; // Los meses van de 0 a 11
-    const añoActual = ahora.getFullYear();
-    
-    // Generar opciones de meses
-    const meses = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ];
-    
-    // Generar opciones de años (últimos 5 años y próximos 2)
-    const años = [];
-    for (let i = añoActual - 5; i <= añoActual + 2; i++) {
-        años.push(i);
-    }
-    
-    const { value: formValues } = await Swal.fire({
-        title: 'Seleccionar Ventas del Mes',
-        html: `
-            <label for="tipoVentas">Tipo de Venta:</label>
-            <select id="tipoVentas" class="swal2-select">
-                <option value="total">Todas las ventas</option>
-                <option value="local">Ventas en Local</option>
-                <option value="delivery">Ventas por Delivery</option>
-            </select>
-            
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <div style="flex: 1;">
-                    <label for="mesVentas">Mes:</label>
-                    <select id="mesVentas" class="swal2-select">
-                        ${meses.map((mes, index) => 
-                            `<option value="${index + 1}" ${index + 1 === mesActual ? 'selected' : ''}>${mes}</option>`
-                        ).join('')}
-                    </select>
-                </div>
-                
-                <div style="flex: 1;">
-                    <label for="añoVentas">Año:</label>
-                    <select id="añoVentas" class="swal2-select">
-                        ${años.map(año => 
-                            `<option value="${año}" ${año === añoActual ? 'selected' : ''}>${año}</option>`
-                        ).join('')}
-                    </select>
-                </div>
-            </div>
-        `,
-        focusConfirm: false,
-        preConfirm: () => {
-            return {
-                tipo: document.getElementById('tipoVentas').value,
-                mes: document.getElementById('mesVentas').value,
-                año: document.getElementById('añoVentas').value
-            }
+    try {
+        const ahora = new Date();
+        const mesActual = ahora.getMonth() + 1;
+        const añoActual = ahora.getFullYear();
+        
+        const meses = [
+            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ];
+        
+        const años = [];
+        for (let i = añoActual - 1; i <= añoActual + 1; i++) {
+            años.push(i);
         }
-    });
-
-    if (formValues) {
-        // Formatear el mes para que tenga siempre 2 dígitos
-        const mesFormateado = formValues.mes.toString().padStart(2, '0');
         
-        // Aquí puedes procesar la selección
-        const datos = await cargarDatosVentas(formValues.tipo, 'mes', `${formValues.año}-${mesFormateado}`);
-        
-        // Formatear el total como moneda ARS
-        const totalFormateado = new Intl.NumberFormat('es-AR', {
-            style: 'currency',
-            currency: 'ARS',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(datos?.total || 0);
-        
-        Swal.fire({
-            title: `Ventas de ${meses[formValues.mes - 1]} de ${formValues.año}`,
+        const { value: formValues } = await Swal.fire({
+            title: 'Seleccionar Ventas del Mes',
             html: `
-                <div style="text-align: left;">
-                    <p><strong>Tipo:</strong> ${formValues.tipo === 'total' ? 'Todas las ventas' : 
-                      formValues.tipo === 'local' ? 'Ventas en local' : 'Ventas por delivery'}</p>
-                    <p><strong>Cantidad:</strong> ${datos?.cantidad || 0}</p>
-                    <p><strong>Monto total:</strong> ${totalFormateado}</p>
+                <label for="tipoVentas">Tipo de Venta:</label>
+                <select id="tipoVentas" class="swal2-select">
+                    <option value="total">Todas las ventas</option>
+                    <option value="local">Ventas en Local</option>
+                    <option value="delivery">Ventas por Delivery</option>
+                </select>
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <div style="flex: 1;">
+                        <label for="mesVentas">Mes:</label>
+                        <select id="mesVentas" class="swal2-select">
+                            ${meses.map((mes, index) => 
+                                `<option value="${index + 1}" ${index + 1 === mesActual ? 'selected' : ''}>${mes}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    
+                    <div style="flex: 1;">
+                        <label for="añoVentas">Año:</label>
+                        <select id="añoVentas" class="swal2-select">
+                            ${años.map(año => 
+                                `<option value="${año}" ${año === añoActual ? 'selected' : ''}>${año}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
                 </div>
             `,
-            icon: 'info',
-            confirmButtonText: 'Cerrar'
+            focusConfirm: false,
+            preConfirm: () => {
+                return {
+                    tipo: document.getElementById('tipoVentas').value,
+                    mes: document.getElementById('mesVentas').value,
+                    año: document.getElementById('añoVentas').value
+                }
+            }
+        });
+
+        if (formValues) {
+            Swal.showLoading();
+            
+            const mesFormateado = formValues.mes.toString().padStart(2, '0');
+            const fechaConsulta = `${formValues.año}-${mesFormateado}`;
+            
+            const datos = await cargarDatosVentas(formValues.tipo, 'mes', fechaConsulta);
+            
+            if (!datos || datos.ventas.length === 0) {
+                return Swal.fire({
+                    title: 'Sin datos',
+                    html: `No se encontraron ventas para ${meses[formValues.mes - 1]} de ${formValues.año}`,
+                    icon: 'warning'
+                });
+            }
+
+            const totalFormateado = new Intl.NumberFormat('es-AR', {
+                style: 'currency',
+                currency: 'ARS',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(datos.monto_total || datos.total || 0);
+            
+            Swal.fire({
+                title: `Ventas de ${meses[formValues.mes - 1]} de ${formValues.año}`,
+                html: `
+                    <div style="text-align: left;">
+                        <p><strong>Tipo:</strong> ${formValues.tipo === 'total' ? 'Todas las ventas' : 
+                          formValues.tipo === 'local' ? 'Ventas en local' : 'Ventas por delivery'}</p>
+                        <p><strong>Cantidad:</strong> ${datos.cantidad}</p>
+                        <p><strong>Monto total:</strong> ${totalFormateado}</p>
+                    </div>
+                `,
+                icon: 'info',
+                confirmButtonText: 'Cerrar'
+            });
+        }
+    } catch (error) {
+        console.error("Error al cargar ventas:", error);
+        Swal.fire({
+            title: 'Error',
+            text: 'No se pudieron cargar las ventas. Por favor, intente nuevamente.',
+            icon: 'error'
         });
     }
 }
 
-// Función actualizada para cargar datos de ventas (con parámetro de fecha)
 async function cargarDatosVentas(tipo, periodo, fecha = null) {
     try {
         if (periodo === 'mes' && fecha) {
-            // Para consultas por mes, usar la nueva función
             const [anio, mes] = fecha.split('-');
+            
+            // Verificar si la fecha es futura
+            const ahora = new Date();
+            const fechaConsulta = new Date(anio, mes - 1, 1);
+            
+            if (fechaConsulta > ahora) {
+                return {
+                    ventas: [],
+                    cantidad: 0,
+                    monto_total: 0
+                };
+            }
+
             const data = await main.getVentasPorMesAnio(anio, mes, tipo);
-            return data;
+            
+            if (!data) {
+                throw new Error("No se recibieron datos del servidor");
+            }
+
+            return {
+                ventas: data.ventas || [],
+                cantidad: data.cantidad || data.ventas.length,
+                monto_total: data.monto_total || data.total || 0
+            };
         } else {
-            // Para otros periodos (día), mantener tu lógica actual
             const ventasDelDia = await main.obtenerVentasPorFecha(fecha);
             
-            // Filtrar según el tipo
-            let ventasFiltradas = [];
+            let ventasFiltradas = ventasDelDia;
             if (tipo === 'local') {
                 ventasFiltradas = ventasDelDia.filter(v => v.direccion === 'local');
             } else if (tipo === 'delivery') {
                 ventasFiltradas = ventasDelDia.filter(v => v.direccion !== 'local');
-            } else {
-                ventasFiltradas = ventasDelDia;
             }
             
             return {
@@ -1826,8 +2053,13 @@ async function cargarDatosVentas(tipo, periodo, fecha = null) {
             };
         }
     } catch (error) {
-        console.error('Error al cargar datos de ventas:', error);
-        return null;
+        console.error("Error en cargarDatosVentas:", error);
+        return {
+            ventas: [],
+            cantidad: 0,
+            monto_total: 0,
+            error: error.message
+        };
     }
 }
 
@@ -1837,6 +2069,146 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Opcional: Actualizar cada cierto tiempo (ej. cada 5 minutos)
     setInterval(actualizarValoresVentas, 300000);
+});
+
+// Modal de configuración actualizado
+async function abrirModalConfigurarRecargos() {
+    const { credito, debito } = await main.obtenerRecargos();
+    
+    const { value: formValues } = await Swal.fire({
+        title: 'Configurar Recargos',
+        html: `
+            <div style="text-align: left;">
+                <div class="form-group">
+                    <label>Tarjeta de Crédito:</label>
+                    <div class="input-group">
+                        <input type="number" id="recargoCredito" class="form-control" 
+                               value="${credito}" min="0" max="100" step="0.1">
+                        <div class="input-group-append">
+                            <span class="input-group-text" style="height:100%;">%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group mt-3">
+                    <label>Tarjeta de Débito:</label>
+                    <div class="input-group">
+                        <input type="number" id="recargoDebito" class="form-control" 
+                               value="${debito}" min="0" max="100" step="0.1">
+                        <div class="input-group-append">
+                            <span class="input-group-text" style="height:100%;">%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Guardar',
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => {
+            return {
+                credito: parseFloat(document.getElementById('recargoCredito').value) || 0,
+                debito: parseFloat(document.getElementById('recargoDebito').value) || 0
+            }
+        }
+    });
+
+    if (formValues) {
+        const success = await main.guardarRecargos(formValues.credito, formValues.debito);
+        if (success) {
+            Swal.fire('Éxito', 'Recargos actualizados correctamente', 'success');
+        } else {
+            Swal.fire('Error', 'No se pudieron guardar los cambios', 'error');
+        }
+    }
+}
+
+async function abrirModalConfigurarDescuentos(){
+    let ret=0
+    
+    const { value: formValues } = await Swal.fire({
+        title: 'Configurar Descuentos',
+        html: `
+            <div style="text-align: left;">
+                <div class="form-group">
+                    <h1>Realizando ajustes...</h1>
+                </div>
+                
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Guardar',
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => {
+            return {
+                ret: 0
+            }
+        }
+    });
+
+    if (formValues) {
+        const success = await main.guardarDescuentos("", "");
+        if (success) {
+            Swal.fire('Éxito', 'Descuentos actualizados correctamente', 'success');
+        } else {
+            Swal.fire('Error', 'No se pudieron guardar los cambios', 'error');
+        }
+    }
+}
+
+
+// Función de ejemplo para manejar los recargos guardados
+function actualizarConfiguracionRecargos(credito, debito) {
+    // Aquí implementa la lógica para aplicar los recargos
+    console.log(`Aplicando recargos - Crédito: ${credito}%, Débito: ${debito}%`);
+    
+    // Ejemplo de cómo podrías guardar en localStorage
+    localStorage.setItem('configRecargos', JSON.stringify({
+        credito,
+        debito,
+        fechaActualizacion: new Date().toISOString()
+    }));
+    
+    // También podrías hacer una llamada a tu backend aquí
+}
+
+
+async function calcularTotalConRecargo() {
+    if (recargosActuales.credito === 0 && recargosActuales.debito === 0) {
+        const {credito, debito} = await main.obtenerRecargos()
+        recargosActuales.credito = credito
+        recargosActuales.debito = debito
+    }
+    const metodoPago = document.getElementById('metodoPago').value;
+    const totalSinRecargo = parseFloat(document.getElementById('totalConEnvio').textContent.replace('$', '')) || 0;
+    console.log("totalSinRecargo")
+    console.log(totalSinRecargo)
+    let totalConRecargo = totalSinRecargo;
+    const desglose = document.getElementById('desgloseRecargo');
+
+    if (metodoPago === 'credito' || metodoPago === 'debito') {
+        const porcentaje = metodoPago === 'credito' ? recargosActuales.credito : recargosActuales.debito;
+        const recargo = totalSinRecargo * (porcentaje / 100);
+        totalConRecargo = totalSinRecargo + recargo;
+        
+        // Mostrar desglose
+        document.getElementById('subtotal').textContent = `$${totalSinRecargo.toFixed(2)}`;
+        document.getElementById('montoRecargo').textContent = `$${recargo.toFixed(2)}`;
+        document.getElementById('porcentajeRecargo').textContent = porcentaje;
+        document.getElementById('totalFinal').textContent = `$${totalConRecargo.toFixed(2)}`;
+        desglose.style.display = 'block';
+    } else {
+        desglose.style.display = 'none';
+    }
+
+    document.getElementById('totalConEnvio').textContent = `$${totalConRecargo.toFixed(2)}`;
+    return totalConRecargo;
+}
+
+
+['metodoPago', 'costoEnvio'].forEach(id => {
+    document.getElementById(id).addEventListener('change', actualizarTotalConEnvio);
 });
 
 init();
