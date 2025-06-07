@@ -2362,10 +2362,19 @@ async function calcularTotalConRecargo() {
         totalConRecargo = totalSinRecargo + recargo;
         
         // Mostrar desglose
-        document.getElementById('subtotal').textContent = `$${totalSinRecargo.toFixed(2)}`;
-        document.getElementById('montoRecargo').textContent = `$${recargo.toFixed(2)}`;
+        document.getElementById('subtotal').textContent = `${new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: 'ARS'
+        }).format(totalSinRecargo)}`;
+        document.getElementById('montoRecargo').textContent = `${new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: 'ARS'
+        }).format(recargo)}`;
         document.getElementById('porcentajeRecargo').textContent = porcentaje;
-        document.getElementById('totalFinal').textContent = `$${totalConRecargo.toFixed(2)}`;
+        document.getElementById('totalFinal').textContent = `${new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: 'ARS'
+        }).format(totalConRecargo)}`;
         desglose.style.display = 'block';
     } else {
         desglose.style.display = 'none';
