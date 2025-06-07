@@ -142,6 +142,13 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
+                                    <label for="inputDescuento">Descuento</label>
+                                    <div class="input-group">
+                                        <input type="text" id="inputDescuento" class="form-control" placeholder="Buscar descuento...">
+                                        <ul id="dropdownDescuentos" class="dropdown-menu" style="width: 100%; display: none;"></ul>
+                                    </div>
+                                </div>
+                                <div class="form-group">
                                     <label class="mt-2" for="total"><h5>Total con envío incluído</h5></label>
                                     <span id="totalConEnvio" class="form-control" style="display: inline-block; background: #f7f7f7; padding: 8px;">$0.00</span>
                                 </div>
@@ -154,6 +161,10 @@
                     <div class="card p-4 mx-5" id="resumenVenta">
                         <h5>Resumen de Productos</h5>
                         <ul id="listaResumen" class="list-group">
+                            <div id="desgloseDescuento" style="display: none; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                                <p><strong>Descuento aplicado:</strong> <span id="porcentajeDescuento">0</span>% (<span id="montoDescuento">$0.00</span>)</p>
+                                <p><strong>Total con descuento:</strong> <span id="totalConDescuento">$0.00</span></p>
+                            </div>
                             <!-- Aquí se agregarán los productos y cantidades seleccionadas -->
                         </ul>
                         <div id="desgloseRecargo" style="display: none; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
@@ -232,10 +243,13 @@
                         <img class="iconosConfig" src="./img/iconos/tarjetas-de-credito.png" alt="configuraciones">
                         Recargos
                     </button>
-                    <button onclick="abrirModalConfigurarDescuentos()" class="btn btn-light btn-lg config-buttons" onclick="mostrarVista('configuracion')">
+                    <button onclick="abrirModalCrearDescuento()" class="btn btn-light btn-lg config-buttons" onclick="mostrarVista('configuracion')">
                         <img class="iconosConfig" src="./img/iconos/promocion.png" alt="configuraciones">
                         Descuentos
                     </button>
+                </div>
+                <div class="card-body">
+                    <div id="listaDescuentos"></div>
                 </div>
             </div>
         </div>

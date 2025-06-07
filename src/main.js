@@ -283,6 +283,9 @@ async function obtenerVentasPorFecha(fecha) {
             vp.telefono,
             vp.modo_pago,
             vp.total,
+            vp.id_descuento,
+            d.nombre AS nombre_descuento,
+            d.porcentaje_descuento,
             COALESCE(o.cantidad, 0) AS producto_cantidad, -- Cantidad de productos individuales
             p.nombre AS producto_nombre, -- Nombre del producto individual
             p.precio AS producto_precio,
@@ -295,6 +298,7 @@ async function obtenerVentasPorFecha(fecha) {
             sp.nombre AS producto_en_combo_nombre,
             TIME(vp.fecha) AS horario
         FROM venta_producto vp
+        LEFT JOIN descuentos d ON vp.id_descuento = d.id
         LEFT JOIN orden_producto o ON vp.id_orden = o.id_orden
         LEFT JOIN stock_productos p ON o.id_producto = p.id
         LEFT JOIN orden_combo oc ON vp.id_orden = oc.id_orden
@@ -395,15 +399,57 @@ async function agregarProductoAOrden(idOrden, idProducto, cantidad) {
     );
 }
 
-// Crear una nueva venta en la tabla `venta_producto`
-async function crearVentaProducto({ idOrden, cliente, telefono, direccion, costoEnvio, metodoPago, total, fecha }) {
+// Función actualizada para crear una venta con soporte para descuentos
+async function crearVentaProducto({ 
+    idOrden, 
+    cliente, 
+    telefono, 
+    direccion, 
+    costoEnvio, 
+    metodoPago, 
+    total, 
+    fecha, 
+    id_descuento = null  // Nuevo parámetro con valor por defecto
+}) {
     const conn = await getConnection();
 
-    const sql = `
-    INSERT INTO venta_producto (id_orden, nombre_cliente, telefono, direccion, costo_envio, modo_pago, total, fecha) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-    
-    await conn.query(sql, [idOrden, cliente, telefono, direccion, costoEnvio, metodoPago, total, fecha]);
+    try {
+        // Verificar si el descuento existe si se proporciona un ID
+        if (id_descuento) {
+            const [descuento] = await conn.query(
+                'SELECT id FROM descuentos WHERE id = ?', 
+                [id_descuento]
+            );
+            
+            if (descuento.length === 0) {
+                console.warn(`Descuento con ID ${id_descuento} no encontrado, procediendo sin descuento`);
+                id_descuento = null;
+            }
+        }
+
+        const sql = `
+        INSERT INTO venta_producto 
+        (id_orden, nombre_cliente, telefono, direccion, costo_envio, modo_pago, total, fecha, id_descuento) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        
+        const [result] = await conn.query(sql, [
+            idOrden, 
+            cliente, 
+            telefono, 
+            direccion, 
+            costoEnvio, 
+            metodoPago, 
+            total, 
+            fecha,
+            id_descuento
+        ]);
+
+        return result.insertId;
+        
+    } catch (error) {
+        console.error('Error en crearVentaProducto:', error);
+        throw error;
+    }
 }
 
 // Actualizar las compras del cliente
@@ -462,9 +508,16 @@ async function agregarComboAOrden(idOrden, idCombo, cantidadCombo) {
 
 
 // Registrar una nueva venta
-async function registrarVenta({ productos, cliente, telefono, direccion, costoEnvio, metodoPago, total, fecha }) {
+async function registrarVenta({ productos, cliente, telefono, direccion, costoEnvio, metodoPago, total, fecha, descuento }) {
     try {
         const idOrden = await crearOrden();
+
+        
+        let totalFinal = total;
+        if (descuento) {
+            const montoDescuento = total * (descuento.porcentaje / 100);
+            totalFinal = total - montoDescuento;
+        }
 
         for (const item of productos) {
             if (item.tipo === 'producto') {
@@ -476,6 +529,7 @@ async function registrarVenta({ productos, cliente, telefono, direccion, costoEn
             }
         }
 
+
         await crearVentaProducto({
             idOrden,
             cliente,
@@ -483,8 +537,9 @@ async function registrarVenta({ productos, cliente, telefono, direccion, costoEn
             direccion,
             costoEnvio,
             metodoPago,
-            total,
-            fecha
+            total: totalFinal,
+            fecha,
+            id_descuento: descuento?.id || null
         });
 
         await actualizarComprasCliente(cliente, telefono);
@@ -708,6 +763,9 @@ async function getVentasPorMesAnio(anio, mes, tipo = 'total') {
             SELECT 
                 vp.id_orden AS id,
                 vp.nombre_cliente AS cliente,
+                vp.id_descuento,
+                d.nombre AS nombre_descuento,
+                d.porcentaje_descuento,
                 vp.direccion,
                 vp.telefono,
                 vp.modo_pago,
@@ -715,6 +773,7 @@ async function getVentasPorMesAnio(anio, mes, tipo = 'total') {
                 DATE(vp.fecha) AS fecha,
                 TIME(vp.fecha) AS horario
             FROM venta_producto vp
+            LEFT JOIN descuentos d ON vp.id_descuento = d.id
             WHERE DATE(vp.fecha) BETWEEN ? AND ?
         `;
 
@@ -783,9 +842,53 @@ async function guardarRecargos(credito, debito) {
     }
 }
 
-// Función para guardar recargos
-async function guardarDescuentos(credito, debito) {
-    return true
+
+async function buscarDescuentosPorNombre(nombre) {
+    const conn = await getConnection();
+    const [rows] = await conn.query(
+        'SELECT * FROM descuentos WHERE nombre LIKE ?',
+        [`%${nombre}%`]
+    );
+    return rows;
+}
+
+
+// Obtener todos los descuentos
+async function obtenerDescuentos() {
+    const conn = await getConnection();
+    const [rows] = await conn.query('SELECT * FROM descuentos ORDER BY nombre');
+    return rows;
+}
+
+async function crearDescuento(nombre, porcentaje) {
+    const conn = await getConnection();
+    
+    // Validación adicional por si acaso
+    if (typeof porcentaje !== 'number' || isNaN(porcentaje)) {
+        throw new Error('Porcentaje inválido');
+    }
+    
+    const [result] = await conn.query(
+        'INSERT INTO descuentos (nombre, porcentaje_descuento) VALUES (?, ?)',
+        [nombre, porcentaje]
+    );
+    
+    return result;
+}
+
+// Actualizar descuento existente
+async function actualizarDescuento(id, nombre, porcentaje) {
+    const conn = await getConnection();
+    await conn.query(
+        'UPDATE descuentos SET nombre = ?, porcentaje_descuento = ? WHERE id = ?',
+        [nombre, porcentaje, id]
+    );
+}
+
+// Eliminar descuento
+async function eliminarDescuento(id) {
+    const conn = await getConnection();
+    await conn.query('DELETE FROM descuentos WHERE id = ?', [id]);
 }
 
 let window;
@@ -836,5 +939,9 @@ module.exports = {
     borrarCombo,
     buscarClientesByNombre,
     getVentasPorMesAnio,
-    guardarDescuentos
+    obtenerDescuentos,
+    crearDescuento,
+    actualizarDescuento,
+    eliminarDescuento,
+    buscarDescuentosPorNombre
 };

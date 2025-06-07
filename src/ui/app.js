@@ -16,6 +16,9 @@ let filtroTexto = '';
 let filtroTextoCombo = '';
 let productosSeleccionados = [];
 let recargosActuales = { credito: 0, debito: 0 };
+let descuentosDisponibles = [];
+
+
 
 
 // Obtiene el contenedor de la tabla
@@ -967,6 +970,12 @@ async function registrarNuevaVenta() {
         }
     }
 
+    const descuento = descuentoSeleccionado ? {
+        id: descuentoSeleccionado.id,
+        nombre: descuentoSeleccionado.nombre,
+        porcentaje: descuentoSeleccionado.porcentaje
+    } : null;
+
     try {
         await main.registrarVenta({
             productos: items,
@@ -976,7 +985,8 @@ async function registrarNuevaVenta() {
             costoEnvio,
             metodoPago,
             total: totalConRecargo,
-            fecha: fechaFinal
+            fecha: fechaFinal,
+            descuento
         });
 
         Swal.fire({
@@ -1182,6 +1192,7 @@ async function mostrarVista(vista) {
         stockButton.classList.remove('active');
         combosButton.classList.add('active');
     } else if (vista === 'configuracion') {
+        await cargarDescuentos();
         divConfiguraciones. style.display = 'block';
         divVentas.style.display = 'none';
         divBotonesVentas.style.display = 'none';
@@ -2240,6 +2251,11 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(actualizarValoresVentas, 300000);
 });
 
+document.addEventListener('DOMContentLoaded', async () => {
+    await cargarDescuentos();
+    configurarBusquedaDescuentos();
+});
+
 // Modal de configuración actualizado
 async function abrirModalConfigurarRecargos() {
     const { credito, debito } = await main.obtenerRecargos();
@@ -2292,39 +2308,6 @@ async function abrirModalConfigurarRecargos() {
     }
 }
 
-async function abrirModalConfigurarDescuentos(){
-    let ret=0
-    
-    const { value: formValues } = await Swal.fire({
-        title: 'Configurar Descuentos',
-        html: `
-            <div style="text-align: left;">
-                <div class="form-group">
-                    <h1>Realizando ajustes...</h1>
-                </div>
-                
-            </div>
-        `,
-        focusConfirm: false,
-        showCancelButton: true,
-        confirmButtonText: 'Guardar',
-        cancelButtonText: 'Cancelar',
-        preConfirm: () => {
-            return {
-                ret: 0
-            }
-        }
-    });
-
-    if (formValues) {
-        const success = await main.guardarDescuentos("", "");
-        if (success) {
-            Swal.fire('Éxito', 'Descuentos actualizados correctamente', 'success');
-        } else {
-            Swal.fire('Error', 'No se pudieron guardar los cambios', 'error');
-        }
-    }
-}
 
 
 // Función de ejemplo para manejar los recargos guardados
@@ -2383,6 +2366,245 @@ async function calcularTotalConRecargo() {
     document.getElementById('totalConEnvio').textContent = `$${totalConRecargo.toFixed(2)}`;
     return totalConRecargo;
 }
+
+async function cargarDescuentos() {
+    descuentosDisponibles = await main.obtenerDescuentos();
+    renderListaDescuentos(descuentosDisponibles);
+}
+
+// Modal para crear nuevo descuento
+async function abrirModalCrearDescuento() {
+    const { value: formValues } = await Swal.fire({
+        title: 'Crear Nuevo Descuento',
+        html: `
+            <div class="form-group">
+                <label>Nombre del Descuento</label>
+                <input type="text" id="nombreDescuento" class="form-control" placeholder="Ej: Cliente frecuente" required>
+            </div>
+            <div class="form-group">
+                <label>Porcentaje de Descuento</label>
+                <div class="input-group">
+                    <input type="number" id="porcentajeDescuento" class="form-control" 
+                           min="1" max="100" required>
+                    <div class="input-group-append">
+                        <span class="input-group-text">%</span>
+                    </div>
+                </div>
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Guardar',
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => {
+            const nombre = document.getElementById('nombreDescuento').value.trim();
+            const porcentajeInput = document.getElementById('porcentajeDescuento');
+            console.log(porcentajeInput.textContent)
+            const porcentaje = parseFloat(porcentajeInput.value);
+            
+            // Validaciones
+            if (!nombre) {
+                Swal.showValidationMessage('El nombre del descuento es obligatorio');
+                return false;
+            }
+            
+            if (isNaN(porcentaje)) {
+                Swal.showValidationMessage('Ingrese un porcentaje válido');
+                return false;
+            }
+            
+            if (porcentaje <= 0 || porcentaje > 100) {
+                Swal.showValidationMessage('El porcentaje debe estar entre 1 y 100');
+                return false;
+            }
+            
+            return {
+                nombre: nombre,
+                porcentaje: porcentaje
+            };
+        }
+    });
+
+    if (formValues) {
+        try {
+            await main.crearDescuento(formValues.nombre, formValues.porcentaje);
+            await cargarDescuentos();
+            Swal.fire('Éxito', 'Descuento creado correctamente', 'success');
+        } catch (error) {
+            console.error('Error al crear descuento:', error);
+            Swal.fire('Error', 'No se pudo crear el descuento', 'error');
+        }
+    }
+}
+
+// Función para editar descuento
+async function editarDescuento(id) {
+    const descuento = descuentosDisponibles.find(d => d.id === id);
+    
+    if (!descuento) return;
+    
+    const { value: formValues } = await Swal.fire({
+        title: 'Editar Descuento',
+        html: `
+            <div class="form-group">
+                <label>Nombre del Descuento</label>
+                <input type="text" id="editNombreDescuento" class="form-control" value="${descuento.nombre}">
+            </div>
+            <div class="form-group">
+                <label>Porcentaje de Descuento</label>
+                <div class="input-group">
+                    <input type="number" id="editPorcentajeDescuento" class="form-control" 
+                           value="${descuento.porcentaje_descuento}" min="1" max="100" step="0.1">
+                    <div class="input-group-append">
+                        <span class="input-group-text">%</span>
+                    </div>
+                </div>
+            </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Actualizar',
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => {
+            return {
+                nombre: document.getElementById('editNombreDescuento').value,
+                porcentaje: parseFloat(document.getElementById('editPorcentajeDescuento').value)
+            }
+        }
+    });
+
+    if (formValues) {
+        await main.actualizarDescuento(id, formValues.nombre, formValues.porcentaje);
+        await cargarDescuentos();
+        Swal.fire('Éxito', 'Descuento actualizado correctamente', 'success');
+    }
+}
+
+// Función para eliminar descuento
+async function eliminarDescuento(id) {
+    const confirmacion = await Swal.fire({
+        title: '¿Eliminar descuento?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (confirmacion.isConfirmed) {
+        await main.eliminarDescuento(id);
+        await cargarDescuentos();
+        Swal.fire('Eliminado', 'El descuento ha sido eliminado', 'success');
+    }
+}
+
+function configurarBusquedaDescuentos() {
+    const inputDescuento = document.getElementById('inputDescuento');
+    const dropdownDescuentos = document.getElementById('dropdownDescuentos');
+
+    if (!inputDescuento || !dropdownDescuentos) return;
+
+    inputDescuento.addEventListener('focus', async () => {
+        if (!descuentosDisponibles.length) {
+            descuentosDisponibles = await main.obtenerDescuentos();
+        }
+        mostrarDescuentos(descuentosDisponibles);
+    });
+
+    inputDescuento.addEventListener('input', () => {
+        const searchTerm = inputDescuento.value.toLowerCase();
+        const filtered = descuentosDisponibles.filter(d => 
+            d.nombre.toLowerCase().includes(searchTerm)
+            .slice(0, 5));
+        mostrarDescuentos(filtered);
+    });
+
+    function mostrarDescuentos(descuentos) {
+        dropdownDescuentos.innerHTML = descuentos.map(d => `
+            <li>
+                <a href="#" class="dropdown-item" 
+                   data-id="${d.id}" 
+                   data-porcentaje="${d.porcentaje_descuento}">
+                   ${d.nombre} (${d.porcentaje_descuento}%)
+                </a>
+            </li>
+        `).join('');
+        
+        dropdownDescuentos.style.display = descuentos.length ? 'block' : 'none';
+    }
+    dropdownDescuentos.addEventListener('click', (e) => {
+        const selected = e.target.closest('.dropdown-item');
+        if (!selected) return;
+
+        inputDescuento.value = selected.textContent.trim();
+        descuentoSeleccionado = {
+            id: selected.getAttribute('data-id'),
+            nombre: selected.textContent.trim(),
+            porcentaje: parseFloat(selected.getAttribute('data-porcentaje'))
+        };
+        dropdownDescuentos.style.display = 'none';
+        actualizarTotalConDescuento();
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!dropdownDescuentos.contains(e.target)) {
+            dropdownDescuentos.style.display = 'none';
+        }
+    });
+}
+
+// Función para actualizar el total con descuento
+function actualizarTotalConDescuento() {
+    const totalElement = document.getElementById('totalConEnvio');
+    const total = parseFloat(totalElement.textContent.replace('$', '')) || 0;
+    
+    if (descuentoSeleccionado) {
+        const descuento = total * (descuentoSeleccionado.porcentaje / 100);
+        const totalConDescuento = total - descuento;
+        
+        // Mostrar el desglose del descuento
+        document.getElementById('desgloseDescuento').style.display = 'block';
+        document.getElementById('montoDescuento').textContent = `-$${descuento.toFixed(2)}`;
+        document.getElementById('porcentajeDescuento').textContent = descuentoSeleccionado.porcentaje;
+        document.getElementById('totalConDescuento').textContent = `$${totalConDescuento.toFixed(2)}`;
+    } else {
+        document.getElementById('desgloseDescuento').style.display = 'none';
+    }
+}
+
+// Función para renderizar la tabla de descuentos
+function renderListaDescuentos(descuentos) {
+    const listaDescuentos = document.getElementById('listaDescuentos');
+    
+    if (!listaDescuentos) return;
+    
+    listaDescuentos.innerHTML = `
+        <table class="table table-striped table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Porcentaje</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${descuentos.map(d => `
+                    <tr>
+                        <td>${d.id}</td>
+                        <td>${d.nombre}</td>
+                        <td>${d.porcentaje_descuento}%</td>
+                        <td>
+                            <button onclick="editarDescuento(${d.id})" class="btn btn-primary btn-sm">EDITAR</button>
+                            <button onclick="eliminarDescuento(${d.id})" class="btn btn-danger btn-sm">BORRAR</button>
+                        </td>
+                    </tr>`).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
 
 
 ['metodoPago', 'costoEnvio'].forEach(id => {

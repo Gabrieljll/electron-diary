@@ -430,3 +430,22 @@ h5{
 #totalFinal{
     font-size: 25px;
 }
+
+.descuentos-container {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.descuento-item {
+    background-color: #f8f9fa;
+    transition: all 0.2s;
+}
+
+.descuento-item:hover {
+    background-color: #e9ecef;
+}
+
+.btn-editar-descuento, .btn-eliminar-descuento {
+    padding: 0.15rem 0.5rem;
+    font-size: 0.8rem;
+}
