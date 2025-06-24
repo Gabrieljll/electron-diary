@@ -318,6 +318,8 @@ async function obtenerVentasPorFecha(fecha) {
                 direccion: row.direccion,
                 telefono: row.telefono,
                 modo_pago: row.modo_pago,
+                nombre_descuento: row.nombre_descuento,
+                porcentaje_descuento: row.porcentaje_descuento,
                 total: row.total,
                 horario: row.horario,
                 productos: [],
@@ -514,10 +516,6 @@ async function registrarVenta({ productos, cliente, telefono, direccion, costoEn
 
         
         let totalFinal = total;
-        if (descuento) {
-            const montoDescuento = total * (descuento.porcentaje / 100);
-            totalFinal = total - montoDescuento;
-        }
 
         for (const item of productos) {
             if (item.tipo === 'producto') {

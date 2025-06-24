@@ -17,6 +17,9 @@ let filtroTextoCombo = '';
 let productosSeleccionados = [];
 let recargosActuales = { credito: 0, debito: 0 };
 let descuentosDisponibles = [];
+let descuentoSeleccionado = null
+let ultimoTotalCalculado = 0;
+ 
 
 
 
@@ -289,7 +292,7 @@ async function agregarProductoVenta() {
 
         // Actualizar el resumen de productos
         actualizarResumenVenta();
-        actualizarTotalConEnvio()
+        actualizarUI()
     } catch (error) {
         console.error('Error al agregar producto/combo a la venta:', error);
         Swal.fire('Error', 'Hubo un problema al agregar el producto/combo a la venta.', 'error');
@@ -879,164 +882,92 @@ async function eliminarCombo(id){
 // =======================================================
 // FUNCIONES PARA VENTAS
 // =======================================================
+// Función principal refactorizada
 async function registrarNuevaVenta() {
-    const fechaVentaInput = document.getElementById('fechaVenta');
-    const fechaVentaSeleccionada = fechaVentaInput.value;
-    const fechaActual = new Date();
-
-    // Formatear fecha y hora
-    const formatearFechaLocal = (fecha) => {
-        const anio = fecha.getFullYear();
-        const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-        const dia = String(fecha.getDate()).padStart(2, '0');
-        const hora = String(fecha.getHours()).padStart(2, '0');
-        const minutos = String(fecha.getMinutes()).padStart(2, '0');
-        const segundos = String(fecha.getSeconds()).padStart(2, '0');
-        return `${anio}-${mes}-${dia} ${hora}:${minutos}:${segundos}`;
-    };
-
-    let fechaFinal;
-    if (fechaVentaSeleccionada) {
-        const hoyFormateado = fechaActual.toISOString().slice(0, 10);
-        fechaFinal = (fechaVentaSeleccionada === hoyFormateado)
-            ? formatearFechaLocal(fechaActual)
-            : `${fechaVentaSeleccionada} 23:59:00`;
-    } else {
-        fechaFinal = formatearFechaLocal(fechaActual);
-    }
-
-    const cliente = document.getElementById('nombreCliente').value;
-    const telefono = document.getElementById('telefono').value;
-    const direccion = document.getElementById('direccion').value;
-    const metodoPago = document.getElementById('metodoPago').value;
-    const costoEnvio = parseFloat(document.getElementById('costoEnvio').value) || 0;
-    const totalConRecargo = parseFloat(document.getElementById('totalConEnvio').textContent.replace('$', '')) || 0;
-    
-    // Obtener recargos actuales
-    const { credito, debito } = await obtenerRecargosActuales();
-    // Calcular total sin recargo (base para comisiones)
-    let totalSinRecargo = totalConRecargo;
-    let montoRecargo = 0;
-    let porcentajeRecargo = 0;
-
-    if (metodoPago === 'credito') {
-        porcentajeRecargo = credito;
-        totalSinRecargo = totalConRecargo / (1 + (credito / 100));
-        montoRecargo = totalConRecargo - totalSinRecargo;
-    } else if (metodoPago === 'debito') {
-        porcentajeRecargo = debito;
-        totalSinRecargo = totalConRecargo / (1 + (debito / 100));
-        montoRecargo = totalConRecargo - totalSinRecargo;
-    }
-
-    const items = productosSeleccionados.map(item => ({
-        id: item.id,
-        tipo: item.tipo, // "producto" o "combo"
-        cantidad: item.cantidad
-    }));
-
-    // Validaciones
-    if (!cliente || productosSeleccionados.length === 0) {
-        Swal.fire('Error', 'Por favor, completa todos los campos y selecciona al menos un producto o combo.', 'error');
-        return;
-    }
-    if (!direccion) {
-        Swal.fire('Error', 'Por favor ingresa una dirección válida.', 'error');
-        return;
-    }
-    if (isNaN(costoEnvio)) {
-        Swal.fire('Error', 'Por favor ingresa un costo de envío válido.', 'error');
-        return;
-    }
-
-    // Verificar stock para productos y combos
-    for (const item of items) {
-        if (item.tipo === 'producto') {
-            const producto = await main.getProductoById(item.id);
-            if (producto.cantidad_disponible < item.cantidad) {
-                Swal.fire('Error', `No hay suficiente stock para el producto ${producto.nombre}. Solo hay ${producto.cantidad_disponible} unidades disponibles.`, 'error');
-                return;
-            }
-        } else if (item.tipo === 'combo') {
-            const combo = await main.getComboById(item.id);
-            for (const detalle of combo.detalles) {
-                const producto = await main.getProductoById(detalle.id_producto);
-                const stockNecesario = detalle.cantidad * item.cantidad;
-                if (producto.cantidad_disponible < stockNecesario) {
-                    Swal.fire('Error', `No hay suficiente stock para el producto ${producto.nombre} en el combo ${combo.nombre}. Solo hay ${producto.cantidad_disponible} unidades disponibles.`, 'error');
-                    return;
-                }
-            }
-        }
-    }
-
-    const descuento = descuentoSeleccionado ? {
-        id: descuentoSeleccionado.id,
-        nombre: descuentoSeleccionado.nombre,
-        porcentaje: descuentoSeleccionado.porcentaje
-    } : null;
-
     try {
+        // Validaciones básicas
+        const cliente = document.getElementById('nombreCliente').value;
+        const direccion = document.getElementById('direccion').value;
+        const costoEnvio = parseFloat(document.getElementById('costoEnvio').value) || 0;
+        
+        if (!cliente || productosSeleccionados.length === 0) {
+            throw new Error('Por favor, completa todos los campos y selecciona al menos un producto o combo.');
+        }
+        if (!direccion) {
+            throw new Error('Por favor ingresa una dirección válida.');
+        }
+        if (isNaN(costoEnvio)) {
+            throw new Error('Por favor ingresa un costo de envío válido.');
+        }
+
+        // Preparar datos
+        const items = productosSeleccionados.map(item => ({
+            id: item.id,
+            tipo: item.tipo,
+            cantidad: item.cantidad
+        }));
+
+        await validarStock(items);
+
+        const fechaFinal = obtenerFechaFinal(document.getElementById('fechaVenta').value);
+        const totalBase = parseFloat(document.getElementById('totalConEnvio').textContent.replace('$', '')) || 0;
+        const metodoPago = document.getElementById('metodoPago').value;
+        
+       // Calcular totales - Obtener todos los valores necesarios
+        const calculos = await calcularTotales();
+        
+        // Validar que los cálculos sean correctos
+        if (typeof calculos.totalFinal !== 'number') {
+            throw new Error('Error en el cálculo del total final');
+        }
+
+        // Registrar venta
         await main.registrarVenta({
-            productos: items,
-            cliente,
-            telefono,
-            direccion,
-            costoEnvio,
-            metodoPago,
-            total: totalConRecargo,
-            fecha: fechaFinal,
-            descuento
+            productos: productosSeleccionados.map(item => ({
+                id: item.id,
+                tipo: item.tipo,
+                cantidad: item.cantidad
+            })),
+            cliente: document.getElementById('nombreCliente').value,
+            telefono: document.getElementById('telefono').value,
+            direccion: document.getElementById('direccion').value,
+            costoEnvio: parseFloat(document.getElementById('costoEnvio').value) || 0,
+            metodoPago: document.getElementById('metodoPago').value,
+            total: calculos.totalFinal,
+            fecha: obtenerFechaFinal(document.getElementById('fechaVenta').value),
+            descuento: descuentoSeleccionado
         });
 
+        // Mostrar mensaje de éxito
         Swal.fire({
             title: 'Venta registrada',
-            html: `La venta se ha registrado correctamente.<br>
-                  ${montoRecargo > 0 ? `Recargo aplicado (${porcentajeRecargo}%): $${montoRecargo.toFixed(2)}<br>` : ''}
-                  Total: $${totalConRecargo.toFixed(2)}`,
+            html: generarMensajeExito({
+                totalBase: calculos.subtotal,
+                montoRecargo: calculos.recargo,
+                porcentajeRecargo: calculos.porcentajeRecargo,
+                montoDescuento: calculos.descuento,
+                totalFinal: calculos.totalFinal
+            }, descuentoSeleccionado),
             icon: 'success'
         });
 
-        // Limpiar formulario y productos seleccionados
-        document.getElementById('nombreCliente').value = '';
-        document.getElementById('telefono').value = '';
-        document.getElementById('tipoVenta').value = 'local';
-        document.getElementById('direccion').value = 'local';
-        document.getElementById('direccion').disabled = true;
-        document.getElementById('costoEnvio').value = 0;
-        document.getElementById('costoEnvio').disabled = true;
-        document.getElementById('cantidadProducto').value = '';
-        document.getElementById('metodoPago').value = 'efectivo'; // Resetear a efectivo
-        document.getElementById('desgloseRecargo').style.display = 'none';
-        productosSeleccionados = [];
-
-        actualizarResumenVenta();
-
-        // Actualizar la lista de ventas y productos
+        // Limpiar y actualizar
+        limpiarFormularioVenta();
+        await actualizarUI();
         await actualizarProductos();
-        await cargarVentasPorFecha(fechaVentaSeleccionada);
+        await cargarVentasPorFecha(document.getElementById('fechaVenta').value);
     } catch (error) {
         console.error('Error al registrar la venta:', error);
-        Swal.fire('Error', 'Hubo un problema al registrar la venta. Inténtalo nuevamente.', 'error');
+        Swal.fire('Error', error.message, 'error');
     }
 }
 
-// Función auxiliar para obtener recargos actuales
+// 2. Función para obtener recargos (con cache)
 async function obtenerRecargosActuales() {
-    try {
-        // 1. Obtener datos del backend
-        const recargos = await main.obtenerRecargos();
-        
-        // 2. Validar y retornar con valores por defecto
-        return {
-            credito: recargos?.credito || 0,  // Si recargos.credito es undefined/null, usa 0
-            debito: recargos?.debito || 0     // Si recargos.debito es undefined/null, usa 0
-        };
-        
-    } catch (error) {
-        console.error('Error al obtener recargos:', error);
-        return { credito: 0, debito: 0 }; // Retorno seguro en caso de error
+    if (recargosActuales.credito === 0 && recargosActuales.debito === 0) {
+        recargosActuales = await main.obtenerRecargos();
     }
+    return recargosActuales;
 }
 
 async function cargarVentasPorFecha(fecha = null) {
@@ -1054,7 +985,7 @@ async function cargarVentasPorFecha(fecha = null) {
             const precio = venta.direccion === 'local' ? producto.precio : producto.precio_delivery;
             return `
                 <li class="list-group-item">
-                    ${producto.cantidad || 1} x ${producto.nombre} - $${precio?.toFixed(2) || '0.00'}
+                    ${producto.cantidad || 1} x ${producto.nombre} - ${formatCurrency(precio?.toFixed(2)) || '0.00'}
                 </li>`;
         }).join('');
 
@@ -1063,7 +994,7 @@ async function cargarVentasPorFecha(fecha = null) {
             const precio = venta.direccion === 'local' ? combo.precio : combo.precio_delivery;
             return `
                 <li class="list-group-item">
-                    ${combo.cantidad} x ${combo.nombre} - $${(combo.cantidad * precio).toFixed(2)}
+                    ${combo.cantidad} x ${combo.nombre} - ${formatCurrency((combo.cantidad * precio).toFixed(2))}
                     <br>
                     <small>Incluye: ${combo.productos.map(p => p.nombre).join(', ')}</small>
                 </li>`;
@@ -1072,7 +1003,7 @@ async function cargarVentasPorFecha(fecha = null) {
         // Crear el elemento de la venta
         const ventaItem = document.createElement('li');
         ventaItem.classList.add('list-group-item');
-
+        let descuentoAplicado = (venta.nombre_descuento) ? venta.nombre_descuento+ ' ('+parseInt(venta.porcentaje_descuento)+'%)' : 'Ninguno'
         ventaItem.innerHTML = `
             <div class="divDetalleVentasYBotones">
                 <div style="width: 50%">
@@ -1081,7 +1012,8 @@ async function cargarVentasPorFecha(fecha = null) {
                     <strong>Dirección:</strong> ${venta.direccion} <br>
                     <strong>Teléfono:</strong> ${venta.telefono} <br>
                     <strong>Pagado con:</strong> ${venta.modo_pago} <br>
-                    <strong>Total:</strong> $${venta.total.toFixed(2)}
+                    <strong>Descuento aplicado:</strong> ${descuentoAplicado}<br>
+                    <strong>Total:</strong> ${formatCurrency(venta.total.toFixed(2))}
                 </div>
                 <div class="divBotonesDetalleVentas" style="width: 50%">
                     <div>
@@ -1241,34 +1173,220 @@ function validarStock() {
     }
 }
 
-function actualizarResumenVenta() {
-    const listaResumen = document.getElementById('listaResumen');
-    listaResumen.innerHTML = ''; // Limpiar el resumen actual
+// 1. Funciones básicas de cálculo
+function calcularSubtotal() {
+    return productosSeleccionados.reduce((total, producto) => {
+        const precio = parseFloat(String(producto.precio).replace(/[^\d.-]/g, ''));
+        return total + (precio * producto.cantidad);
+    }, 0);
+}
 
-    productosSeleccionados.forEach((producto, index) => {
-        // Crear un nuevo elemento de lista para cada producto
-        const productoElemento = document.createElement('li');
-        productoElemento.classList.add('list-group-item');
+function calcularCostoEnvio() {
+    const envioValue = document.getElementById('costoEnvio').value;
+    return parseFloat(envioValue.replace(/[^\d.-]/g, '')) || 0;
+}
 
-        // Crear el contenido del producto
-        productoElemento.innerHTML = `
-            <span>${producto.nombre} - ${producto.cantidad} x $${producto.precio}</span>
-        `;
+async function obtenerRecargos() {
+    if (recargosActuales.credito === 0 && recargosActuales.debito === 0) {
+        const { credito, debito } = await main.obtenerRecargos();
+        recargosActuales = { credito, debito };
+    }
+    return recargosActuales;
+}
 
-        const botonEliminar = document.createElement('button');
-        botonEliminar.classList.add('btn', 'btn-light', 'btn-md', 'm-2', 'quitarProducto');
-        botonEliminar.innerHTML = 'x';
-        botonEliminar.onclick = () => quitarProducto(index);
+function calcularRecargo(totalSinRecargo, metodoPago, recargos) {
+    if (metodoPago !== 'credito' && metodoPago !== 'debito') return 0;
+    
+    const porcentaje = metodoPago === 'credito' ? recargos.credito : recargos.debito;
+    return totalSinRecargo * (porcentaje / 100);
+}
 
-        productoElemento.appendChild(botonEliminar);
-        // Agregar el nuevo producto a la lista
-        listaResumen.appendChild(productoElemento);
-    });
+function calcularDescuento(totalConRecargo) {
+    if (!descuentoSeleccionado) return 0;
+    return totalConRecargo * (descuentoSeleccionado.porcentaje / 100);
+}
 
-    // Actualizar el total (si es necesario)
-    const total = productosSeleccionados.reduce((acc, producto) => acc + (producto.precio * producto.cantidad), 0);
-    document.getElementById('totalConEnvio').textContent = `$${total.toFixed(2)}`;
-    actualizarTotalConEnvio()
+// 2. Función principal de cálculo
+async function calcularTotalesVenta() {
+    const subtotal = calcularSubtotal();
+    const costoEnvio = calcularCostoEnvio();
+    const totalSinRecargo = subtotal + costoEnvio;
+    
+    const metodoPago = document.getElementById('metodoPago').value;
+    const recargos = await obtenerRecargos();
+    const recargo = calcularRecargo(totalSinRecargo, metodoPago, recargos);
+    const totalConRecargo = totalSinRecargo + recargo;
+    
+    const descuento = calcularDescuento(totalConRecargo);
+    const totalFinal = totalConRecargo - descuento;
+    
+    return {
+        subtotal,
+        costoEnvio,
+        totalSinRecargo,
+        recargo,
+        porcentajeRecargo: metodoPago === 'credito' ? recargos.credito : 
+                          metodoPago === 'debito' ? recargos.debito : 0,
+        descuento,
+        totalFinal
+    };
+}
+
+// 3. Función principal de actualización UI
+async function actualizarUI() {
+    try {
+        const calculos = await calcularTotales();
+        
+        // Actualizar lista de productos
+        actualizarResumenProductos();
+        
+        // Actualizar total en la UI
+        const totalElement = document.getElementById('totalConEnvio');
+        const totalFinalElement = document.getElementById('totalFinal');
+        
+        if (totalElement && totalFinalElement) {
+            totalElement.textContent = formatCurrency(calculos.totalFinal);
+            totalFinalElement.textContent = formatCurrency(calculos.totalFinal);
+            totalElement.dataset.rawValue = calculos.totalFinal;
+        }
+        
+        // Actualizar desgloses
+        actualizarDesgloseRecargo({
+            totalSinRecargos: calculos.totalSinRecargos,
+            recargo: calculos.recargo,
+            porcentajeRecargo: calculos.porcentajeRecargo,
+            totalConRecargos: calculos.totalConRecargos
+        });
+        
+        actualizarDesgloseDescuento({
+            descuento: calculos.descuento,
+            totalFinal: calculos.totalFinal
+        });
+
+        mostrarTotalFinalUI()
+        
+    } catch (error) {
+        console.error('Error en actualizarUI:', error);
+    }
+}
+
+function mostrarTotalFinalUI(){
+    const divTotalFinal = document.getElementById('desgloseTotalFinal')
+    let totalFinal = parseFloat(document.getElementById('totalConEnvio').textContent.replace('$', '')) || 0
+    if(totalFinal>0){
+        divTotalFinal.style.display = 'block';
+    } else {
+        divTotalFinal.style.display = 'none'
+    }
+}
+
+// 4. Función para actualizar el resumen completo (incluye productos y totales)
+async function actualizarResumenCompleto() {
+    await actualizarUI();
+}
+
+function actualizarDesgloseRecargo({ totalSinRecargos, recargo, porcentajeRecargo, totalConRecargos }) {
+    const elements = {
+        desglose: document.getElementById('desgloseRecargo'),
+        subtotal: document.getElementById('subtotal'),
+        montoRecargo: document.getElementById('montoRecargo'),
+        porcentajeRecargo: document.getElementById('porcentajeRecargo'),
+        totalConRecargo: document.getElementById('totalConRecargo')
+    };
+    
+    // Verificar que todos los elementos existen
+    const elementosFaltantes = Object.entries(elements)
+        .filter(([name, el]) => !el)
+        .map(([name]) => name);
+    
+    if (elementosFaltantes.length > 0) {
+        console.error('Elementos faltantes en el desglose de recargo:', elementosFaltantes);
+        return;
+    }
+    
+    if (porcentajeRecargo > 0) {
+        elements.desglose.style.display = 'block';
+        elements.subtotal.textContent = formatCurrency(totalSinRecargos);
+        elements.montoRecargo.textContent = formatCurrency(recargo);
+        elements.porcentajeRecargo.textContent = porcentajeRecargo;
+        elements.totalConRecargo.textContent = formatCurrency(totalConRecargos);
+    } else {
+        elements.desglose.style.display = 'none';
+    }
+}
+
+function actualizarDesgloseDescuento({ descuento, totalFinal }) {
+    const desglose = document.getElementById('desgloseDescuento');
+    
+    if (descuentoSeleccionado) {
+        desglose.style.display = 'block';
+        document.getElementById('montoDescuento').textContent = `-${formatCurrency(descuento)}`;
+        document.getElementById('porcentajeDescuento').textContent = descuentoSeleccionado.porcentaje;
+    } else {
+        desglose.style.display = 'none';
+    }
+}
+
+
+// 6. Función auxiliar de formato
+function formatCurrency(amount) {
+    const numericValue = typeof amount === 'string' ? 
+        parseFloat(amount.replace(/[^\d.-]/g, '')) : 
+        Number(amount);
+    
+    return new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency: 'ARS',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(numericValue);
+}
+
+// Función principal de actualización corregida
+async function actualizarResumenVenta() {
+    try {
+        const subtotal = calcularSubtotal();
+        const costoEnvio = calcularCostoEnvio();
+        const totalSinRecargo = subtotal + costoEnvio;
+        
+        const metodoPago = document.getElementById('metodoPago').value;
+        const recargos = await obtenerRecargos();
+        const recargo = calcularRecargo(totalSinRecargo, metodoPago, recargos);
+        const totalConRecargo = totalSinRecargo + recargo;
+        
+        const descuento = calcularDescuento(totalConRecargo);
+        const totalFinal = totalConRecargo - descuento;
+        
+        // Actualizar UI
+        actualizarUI();
+        actualizarDesgloseRecargo({ 
+            totalSinRecargo, 
+            recargo, 
+            porcentajeRecargo: metodoPago === 'credito' ? recargos.credito : 
+                              metodoPago === 'debito' ? recargos.debito : 0,
+            totalFinal 
+        });
+        actualizarDesgloseDescuento({ totalFinal, descuento });
+        
+        // Actualizar total asegurando formato correcto
+        const totalElement = document.getElementById('totalConEnvio');
+        totalElement.textContent = formatCurrency(totalFinal);
+        totalElement.dataset.rawValue = totalFinal; // Guardar valor numérico
+        
+    } catch (error) {
+        console.error('Error al actualizar resumen:', error);
+    }
+}
+
+// 4. Función para obtener el valor numérico seguro
+function obtenerTotalNumerico() {
+    const totalElement = document.getElementById('totalConEnvio');
+    // Preferir el valor raw si existe
+    if (totalElement.dataset.rawValue) {
+        return parseFloat(totalElement.dataset.rawValue);
+    }
+    // Parsear el texto como fallback
+    return parseFloat(totalElement.textContent.replace(/[^\d.-]/g, '')) || 0;
 }
 
 // Función para actualizar los precios de todos los productos seleccionados
@@ -1387,19 +1505,11 @@ async function actualizarPreciosProductos(precioTipo) {
 function quitarProducto(index) {
     productosSeleccionados.splice(index, 1);
     actualizarResumenVenta();
-    actualizarTotalConEnvio()
+    actualizarUI()
 }
 
 function calcularTotalProductos() {
     return productosSeleccionados.reduce((total, producto) => total + (producto.precio * producto.cantidad), 0);
-}
-
-function actualizarTotalConEnvio() {
-    const costoEnvio = parseFloat(document.getElementById('costoEnvio').value) || 0;
-    const totalProductos = calcularTotalProductos();
-    const totalConEnvio = totalProductos + costoEnvio;
-    document.getElementById('totalConEnvio').textContent = `$${totalConEnvio.toFixed(2)}`;
-    calcularTotalConRecargo()
 }
 
 // Llamar a la función cuando se carga la página
@@ -2326,46 +2436,44 @@ function actualizarConfiguracionRecargos(credito, debito) {
 }
 
 
-async function calcularTotalConRecargo() {
-    if (recargosActuales.credito === 0 && recargosActuales.debito === 0) {
-        const {credito, debito} = await main.obtenerRecargos()
-        recargosActuales.credito = credito
-        recargosActuales.debito = debito
-    }
-    const metodoPago = document.getElementById('metodoPago').value;
-    const totalSinRecargo = parseFloat(document.getElementById('totalConEnvio').textContent.replace('$', '')) || 0;
-    console.log("totalSinRecargo")
-    console.log(totalSinRecargo)
-    let totalConRecargo = totalSinRecargo;
-    const desglose = document.getElementById('desgloseRecargo');
+// async function calcularTotalConRecargo() {
+//     if (recargosActuales.credito === 0 && recargosActuales.debito === 0) {
+//         const {credito, debito} = await main.obtenerRecargos()
+//         recargosActuales.credito = credito
+//         recargosActuales.debito = debito
+//     }
+//     const metodoPago = document.getElementById('metodoPago').value;
+//     const totalSinRecargo = parseFloat(document.getElementById('totalConEnvio').textContent.replace('$', '')) || 0;
+//     let totalConRecargo = totalSinRecargo;
+//     const desglose = document.getElementById('desgloseRecargo');
 
-    if (metodoPago === 'credito' || metodoPago === 'debito') {
-        const porcentaje = metodoPago === 'credito' ? recargosActuales.credito : recargosActuales.debito;
-        const recargo = totalSinRecargo * (porcentaje / 100);
-        totalConRecargo = totalSinRecargo + recargo;
+//     if (metodoPago === 'credito' || metodoPago === 'debito') {
+//         const porcentaje = metodoPago === 'credito' ? recargosActuales.credito : recargosActuales.debito;
+//         const recargo = totalSinRecargo * (porcentaje / 100);
+//         totalConRecargo = totalSinRecargo + recargo;
         
-        // Mostrar desglose
-        document.getElementById('subtotal').textContent = `${new Intl.NumberFormat('es-AR', {
-            style: 'currency',
-            currency: 'ARS'
-        }).format(totalSinRecargo)}`;
-        document.getElementById('montoRecargo').textContent = `${new Intl.NumberFormat('es-AR', {
-            style: 'currency',
-            currency: 'ARS'
-        }).format(recargo)}`;
-        document.getElementById('porcentajeRecargo').textContent = porcentaje;
-        document.getElementById('totalFinal').textContent = `${new Intl.NumberFormat('es-AR', {
-            style: 'currency',
-            currency: 'ARS'
-        }).format(totalConRecargo)}`;
-        desglose.style.display = 'block';
-    } else {
-        desglose.style.display = 'none';
-    }
+//         // Mostrar desglose
+//         document.getElementById('subtotal').textContent = `${new Intl.NumberFormat('es-AR', {
+//             style: 'currency',
+//             currency: 'ARS'
+//         }).format(totalSinRecargo)}`;
+//         document.getElementById('montoRecargo').textContent = `${new Intl.NumberFormat('es-AR', {
+//             style: 'currency',
+//             currency: 'ARS'
+//         }).format(recargo)}`;
+//         document.getElementById('porcentajeRecargo').textContent = porcentaje;
+//         document.getElementById('totalFinal').textContent = `${new Intl.NumberFormat('es-AR', {
+//             style: 'currency',
+//             currency: 'ARS'
+//         }).format(totalConRecargo)}`;
+//         desglose.style.display = 'block';
+//     } else {
+//         desglose.style.display = 'none';
+//     }
 
-    document.getElementById('totalConEnvio').textContent = `$${totalConRecargo.toFixed(2)}`;
-    return totalConRecargo;
-}
+//     document.getElementById('totalConEnvio').textContent = `$${totalConRecargo.toFixed(2)}`;
+//     return totalConRecargo;
+// }
 
 async function cargarDescuentos() {
     descuentosDisponibles = await main.obtenerDescuentos();
@@ -2379,13 +2487,13 @@ async function abrirModalCrearDescuento() {
         html: `
             <div class="form-group">
                 <label>Nombre del Descuento</label>
-                <input type="text" id="nombreDescuento" class="form-control" placeholder="Ej: Cliente frecuente" required>
+                <input type="text" id="nombre-descuento" class="form-control" placeholder="Ej: Promo día del padre" required>
             </div>
             <div class="form-group">
                 <label>Porcentaje de Descuento</label>
                 <div class="input-group">
-                    <input type="number" id="porcentajeDescuento" class="form-control" 
-                           min="1" max="100" required>
+                    <input type="number" id="porcentaje-descuento" class="form-control" 
+                           min="1" max="100" step="0.1" required>
                     <div class="input-group-append">
                         <span class="input-group-text">%</span>
                     </div>
@@ -2397,10 +2505,11 @@ async function abrirModalCrearDescuento() {
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
         preConfirm: () => {
-            const nombre = document.getElementById('nombreDescuento').value.trim();
-            const porcentajeInput = document.getElementById('porcentajeDescuento');
-            console.log(porcentajeInput.textContent)
-            const porcentaje = parseFloat(porcentajeInput.value);
+            // Forma correcta de acceder a los inputs en SweetAlert2 v10+
+            const nombre = Swal.getPopup().querySelector('#nombre-descuento').value.trim();
+            const porcentaje = parseFloat(Swal.getPopup().querySelector('#porcentaje-descuento').value);
+            
+            console.log('Valores capturados:', {nombre, porcentaje}); // Para depuración
             
             // Validaciones
             if (!nombre) {
@@ -2505,18 +2614,27 @@ function configurarBusquedaDescuentos() {
 
     if (!inputDescuento || !dropdownDescuentos) return;
 
-    inputDescuento.addEventListener('focus', async () => {
+    inputDescuento.addEventListener('input', async (e) => {
+        const searchTerm = inputDescuento.value.trim().toLowerCase();
+        
+        // Si el campo está vacío, quitamos el descuento
+        if (searchTerm === '') {
+            descuentoSeleccionado = null;
+            await actualizarUI();  // Cambio aquí: usar actualizarUI() en lugar de actualizarTotalConDescuento()
+            dropdownDescuentos.style.display = 'none';
+            return;
+        }
+        
+        // Cargar descuentos si no están cargados
         if (!descuentosDisponibles.length) {
             descuentosDisponibles = await main.obtenerDescuentos();
         }
-        mostrarDescuentos(descuentosDisponibles);
-    });
-
-    inputDescuento.addEventListener('input', () => {
-        const searchTerm = inputDescuento.value.toLowerCase();
-        const filtered = descuentosDisponibles.filter(d => 
-            d.nombre.toLowerCase().includes(searchTerm)
-            .slice(0, 5));
+        
+        // Filtrar y mostrar resultados
+        const filtered = descuentosDisponibles
+            .filter(d => d.nombre.toLowerCase().includes(searchTerm))
+            .slice(0, 5);
+        
         mostrarDescuentos(filtered);
     });
 
@@ -2533,10 +2651,12 @@ function configurarBusquedaDescuentos() {
         
         dropdownDescuentos.style.display = descuentos.length ? 'block' : 'none';
     }
+
     dropdownDescuentos.addEventListener('click', (e) => {
         const selected = e.target.closest('.dropdown-item');
         if (!selected) return;
 
+        e.preventDefault();
         inputDescuento.value = selected.textContent.trim();
         descuentoSeleccionado = {
             id: selected.getAttribute('data-id'),
@@ -2544,34 +2664,50 @@ function configurarBusquedaDescuentos() {
             porcentaje: parseFloat(selected.getAttribute('data-porcentaje'))
         };
         dropdownDescuentos.style.display = 'none';
-        actualizarTotalConDescuento();
+        actualizarUI();  // Cambio aquí: usar actualizarUI() en lugar de actualizarTotalConDescuento()
     });
 
     document.addEventListener('click', (e) => {
-        if (!dropdownDescuentos.contains(e.target)) {
+        if (!dropdownDescuentos.contains(e.target) && e.target !== inputDescuento) {
             dropdownDescuentos.style.display = 'none';
         }
     });
 }
 
-// Función para actualizar el total con descuento
-function actualizarTotalConDescuento() {
-    const totalElement = document.getElementById('totalConEnvio');
-    const total = parseFloat(totalElement.textContent.replace('$', '')) || 0;
+
+// Función para el mensaje final (corregida)
+function mostrarMensajeFinal(totalBase, totalFinal) {
+    const metodoPago = document.getElementById('metodoPago').value;
+    const costoEnvio = parseFloat(document.getElementById('costoEnvio').value) || 0;
     
-    if (descuentoSeleccionado) {
-        const descuento = total * (descuentoSeleccionado.porcentaje / 100);
-        const totalConDescuento = total - descuento;
-        
-        // Mostrar el desglose del descuento
-        document.getElementById('desgloseDescuento').style.display = 'block';
-        document.getElementById('montoDescuento').textContent = `-$${descuento.toFixed(2)}`;
-        document.getElementById('porcentajeDescuento').textContent = descuentoSeleccionado.porcentaje;
-        document.getElementById('totalConDescuento').textContent = `$${totalConDescuento.toFixed(2)}`;
-    } else {
-        document.getElementById('desgloseDescuento').style.display = 'none';
+    let mensaje = `La venta se ha registrado correctamente.<br>`;
+    
+    // Mostrar recargo si aplica
+    if (metodoPago === 'credito' || metodoPago === 'debito') {
+        const porcentajeRecargo = metodoPago === 'credito' ? credito : debito;
+        const montoRecargo = (totalBase + costoEnvio) * (porcentajeRecargo / 100);
+        mensaje += `Recargo aplicado (${porcentajeRecargo}%): ${formatCurrency(montoRecargo.toFixed(2))}<br>`;
     }
+    
+    // Mostrar descuento si aplica
+    if (descuentoSeleccionado) {
+        const totalConRecargo = totalBase + costoEnvio + (metodoPago === 'credito' ? 
+            (totalBase + costoEnvio) * (credito / 100) : 
+            metodoPago === 'debito' ? (totalBase + costoEnvio) * (debito / 100) : 0);
+        
+        const montoDescuento = totalConRecargo * (descuentoSeleccionado.porcentaje / 100);
+        mensaje += `Descuento aplicado (${descuentoSeleccionado.porcentaje}%): ${formatCurrency(montoDescuento.toFixed(2))}<br>`;
+    }
+    
+    mensaje += `Total: ${formatCurrency(totalFinal.toFixed(2))}`;
+    
+    Swal.fire({
+        title: 'Venta registrada',
+        html: mensaje,
+        icon: 'success'
+    });
 }
+
 
 // Función para renderizar la tabla de descuentos
 function renderListaDescuentos(descuentos) {
@@ -2607,8 +2743,183 @@ function renderListaDescuentos(descuentos) {
 
 
 
-['metodoPago', 'costoEnvio'].forEach(id => {
-    document.getElementById(id).addEventListener('change', actualizarTotalConEnvio);
+['metodoPago', 'costoEnvio', 'inputDescuento'].forEach(id => {
+    document.getElementById(id).addEventListener('change', actualizarUI);
 });
+
+// 5. Configuración de event listeners
+function configurarEventListeners() {
+    // Método de pago
+    document.getElementById('metodoPago').addEventListener('change', actualizarUI);
+    
+    // Costo de envío
+    document.getElementById('costoEnvio').addEventListener('input', actualizarUI);
+    
+    // Descuento
+    document.getElementById('inputDescuento').addEventListener('change', function() {
+        if (this.value === '') {
+            descuentoSeleccionado = null;
+            actualizarUI();
+        }
+    });
+}
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', () => {
+    configurarEventListeners();
+    actualizarUI();
+});
+
+// Funciones auxiliares reutilizables
+const formatearFechaLocal = (fecha) => {
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    const hora = String(fecha.getHours()).padStart(2, '0');
+    const minutos = String(fecha.getMinutes()).padStart(2, '0');
+    const segundos = String(fecha.getSeconds()).padStart(2, '0');
+    return `${anio}-${mes}-${dia} ${hora}:${minutos}:${segundos}`;
+};
+
+const obtenerFechaFinal = (fechaSeleccionada) => {
+    const fechaActual = new Date();
+    if (!fechaSeleccionada) return formatearFechaLocal(fechaActual);
+    
+    const hoyFormateado = fechaActual.toISOString().slice(0, 10);
+    return (fechaSeleccionada === hoyFormateado)
+        ? formatearFechaLocal(fechaActual)
+        : `${fechaSeleccionada} 23:59:00`;
+};
+
+function obtenerCostoEnvio() {
+    const envioValue = document.getElementById('costoEnvio').value;
+    return parseFloat(envioValue.replace(/[^\d.-]/g, '')) || 0;
+}
+
+async function obtenerPorcentajeRecargo() {
+    const metodoPago = document.getElementById('metodoPago').value;
+    
+    if (metodoPago !== 'credito' && metodoPago !== 'debito') return 0;
+    
+    if (recargosActuales.credito === 0 && recargosActuales.debito === 0) {
+        const recargos = await main.obtenerRecargos();
+        recargosActuales = recargos;
+    }
+    
+    return metodoPago === 'credito' ? recargosActuales.credito : recargosActuales.debito;
+}
+
+async function calcularTotales() {
+    try {
+        // Calcular subtotal de productos
+        const subtotal = productosSeleccionados.reduce((total, producto) => {
+            const precio = parseFloat(producto.precio) || 0;
+            const cantidad = parseInt(producto.cantidad) || 0;
+            return total + (precio * cantidad);
+        }, 0);
+        
+        // Obtener costo de envío
+        const costoEnvio = parseFloat(document.getElementById('costoEnvio').value) || 0;
+        const totalSinRecargos = subtotal + costoEnvio;
+        
+        // Obtener método de pago y recargos
+        const metodoPago = document.getElementById('metodoPago').value;
+        const recargos = await obtenerRecargosActuales();
+        
+        // Calcular recargo si corresponde
+        let recargo = 0;
+        let porcentajeRecargo = 0;
+        
+        if (metodoPago === 'credito' || metodoPago === 'debito') {
+            porcentajeRecargo = metodoPago === 'credito' ? recargos.credito : recargos.debito;
+            recargo = totalSinRecargos * (porcentajeRecargo / 100);
+        }
+        
+        const totalConRecargos = totalSinRecargos + recargo;
+        
+        // Calcular descuento (si existe) SOBRE EL TOTAL CON RECARGOS
+        let descuento = 0;
+        if (descuentoSeleccionado) {
+            descuento = totalConRecargos * (descuentoSeleccionado.porcentaje / 100);
+        }
+        
+        const totalFinal = totalConRecargos - descuento;
+        
+        return {
+            subtotal,
+            costoEnvio,
+            totalSinRecargos,
+            recargo,
+            porcentajeRecargo,
+            totalConRecargos,
+            descuento,
+            totalFinal: parseFloat(totalFinal.toFixed(2)) // Asegurar 2 decimales
+        };
+        
+    } catch (error) {
+        console.error('Error en calcularTotales:', error);
+        return {
+            subtotal: 0,
+            costoEnvio: 0,
+            totalSinRecargos: 0,
+            recargo: 0,
+            porcentajeRecargo: 0,
+            totalConRecargos: 0,
+            descuento: 0,
+            totalFinal: 0
+        };
+    }
+}
+
+// 2. Función para actualizar solo el resumen de productos
+function actualizarResumenProductos() {
+    const listaResumen = document.getElementById('listaResumen');
+    listaResumen.innerHTML = '';
+
+    productosSeleccionados.forEach((producto, index) => {
+        const productoElemento = document.createElement('li');
+        productoElemento.classList.add('list-group-item');
+        productoElemento.innerHTML = `
+            <span>${producto.nombre} - ${producto.cantidad} x ${formatCurrency(producto.precio)}</span>
+            <button class="btn btn-light btn-md m-2 quitarProducto" onclick="quitarProducto(${index})">x</button>
+        `;
+        listaResumen.appendChild(productoElemento);
+    });
+}
+
+const limpiarFormularioVenta = () => {
+    document.getElementById('nombreCliente').value = '';
+    document.getElementById('telefono').value = '';
+    document.getElementById('tipoVenta').value = 'local';
+    document.getElementById('direccion').value = 'local';
+    document.getElementById('direccion').disabled = true;
+    document.getElementById('costoEnvio').value = 0;
+    document.getElementById('costoEnvio').disabled = true;
+    document.getElementById('cantidadProducto').value = '';
+    document.getElementById('metodoPago').value = 'efectivo';
+    document.getElementById('desgloseRecargo').style.display = 'none';
+    document.getElementById('inputDescuento').value = '';
+    productosSeleccionados = [];
+    descuentoSeleccionado = null;
+};
+
+const generarMensajeExito = ({ totalBase = 0, montoRecargo = 0, porcentajeRecargo = 0, montoDescuento = 0, totalFinal = 0 } = {}, descuento) => {
+    // Validación adicional para asegurar que totalFinal sea un número
+    totalFinal = typeof totalFinal === 'number' ? totalFinal : 0;
+    
+    let mensaje = `La venta se ha registrado correctamente.<br>`;
+    
+    if (montoRecargo > 0) {
+        mensaje += `Recargo aplicado (${porcentajeRecargo}%): ${formatCurrency(montoRecargo.toFixed(2))}<br>`;
+    }
+    
+    if (descuento) {
+        mensaje += `Descuento aplicado (${descuento.porcentaje}%): ${formatCurrency(montoDescuento.toFixed(2))}<br>`;
+    }
+    
+    mensaje += `Total: ${formatCurrency(totalFinal.toFixed(2))}`;
+    
+    return mensaje;
+};
 
 init();

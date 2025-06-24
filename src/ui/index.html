@@ -161,17 +161,19 @@
                     <div class="card p-4 mx-5" id="resumenVenta">
                         <h5>Resumen de Productos</h5>
                         <ul id="listaResumen" class="list-group">
-                            <div id="desgloseDescuento" style="display: none; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
-                                <p><strong>Descuento aplicado:</strong> <span id="porcentajeDescuento">0</span>% (<span id="montoDescuento">$0.00</span>)</p>
-                                <p><strong>Total con descuento:</strong> <span id="totalConDescuento">$0.00</span></p>
-                            </div>
                             <!-- Aquí se agregarán los productos y cantidades seleccionadas -->
                         </ul>
                         <div id="desgloseRecargo" style="display: none; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
                             <p><strong>Desglose:</strong></p>
                             <p>Subtotal: <span id="subtotal">$0.00</span></p>
                             <p>Recargo: <span id="montoRecargo">$0.00</span> (<span id="porcentajeRecargo">0</span>%)</p>
-                            <p>Total: <span id="totalFinal">$0.00</span></p>
+                            <p>Total con recargo: <span id="totalConRecargo">$0.00</span></p>
+                        </div>
+                        <div id="desgloseDescuento" style="display: none; margin-top: 1rem; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                            <p><strong>Descuento aplicado:</strong> <span id="porcentajeDescuento">0</span>% (<span id="montoDescuento">$0.00</span>)</p>
+                        </div>
+                        <div id="desgloseTotalFinal">
+                            <h3><strong>Total Final:</strong> <span id="totalFinal">$0.00</span></h3>
                         </div>
                     </div>
                 </div>
