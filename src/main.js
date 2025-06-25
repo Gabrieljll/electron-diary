@@ -370,7 +370,7 @@ async function obtenerVentasPorFecha(fecha) {
             vp.telefono,
             vp.modo_pago,
             vp.total,
-            vp.recargo
+            vp.recargo,
             vp.id_descuento,
             d.nombre AS nombre_descuento,
             d.porcentaje_descuento,
