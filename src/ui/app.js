@@ -341,6 +341,7 @@ async function actualizarProductos() {
 async function editarProducto(idProducto){
     const productoDevuelto = await main.getProductoById(idProducto)
     Swal.fire({
+        width: 600,
         html:`
         <h1 class="tituloModal">Editar Producto</h1>
         <hr>
@@ -512,6 +513,7 @@ function abrirModalAgregarCombo() {
             `,
             showCloseButton: true,
             showConfirmButton: false,
+            width:600
         });
 
         // Filtro dinámico para productos
@@ -723,6 +725,7 @@ async function editarCombo(idCombo) {
         };
 
         Swal.fire({
+            width: 600,
             html: `
                 <h1 class="tituloModal">Editar Combo</h1>
                 <hr>
@@ -1562,6 +1565,7 @@ function toggleDetalleVenta(idVenta) {
 // Función para abrir el modal de agregar producto
 function abrirModalAgregarProducto() {
     Swal.fire({
+        width: 600,
         html: `
         <h1 class="tituloModal">Nuevo Producto</h1>
         <hr>
@@ -2039,6 +2043,7 @@ function mostrarDatosVentas(ventasFiltradas, titulo, htmlDropdown, fechaSeleccio
 
     Swal.fire({
         title: titulo,
+        width:600,
         html: `
             <div style="text-align: left;">
                 ${htmlDropdown}
@@ -2080,6 +2085,7 @@ async function abrirModalVentasMes() {
         
         const { value: formValues } = await Swal.fire({
             title: 'Seleccionar Ventas del Mes',
+            width: 700,
             html: `
                 <label for="tipoVentas">Tipo de Venta:</label>
                 <select id="tipoVentas" class="swal2-select">
@@ -2180,6 +2186,7 @@ async function abrirModalVentasMes() {
             
             Swal.fire({
                 title: `Ventas de ${meses[formValues.mes - 1]} de ${formValues.año}`,
+                width: 600,
                 html: `
                     <div style="text-align: left;">
                         ${htmlDropdown}
@@ -2202,6 +2209,7 @@ async function abrirModalVentasMes() {
         console.error("Error al cargar ventas:", error);
         Swal.fire({
             title: 'Error',
+            width: 600,
             text: 'No se pudieron cargar las ventas. Por favor, intente nuevamente.',
             icon: 'error'
         });
@@ -2328,6 +2336,7 @@ async function filtrarVentasMesPorPago(tipo, fechaConsulta, medioPago) {
         console.error("Error al filtrar ventas:", error);
         Swal.fire({
             title: 'Error',
+            width: 600,
             text: 'No se pudieron filtrar las ventas. Por favor, intente nuevamente.',
             icon: 'error'
         });
@@ -2408,6 +2417,7 @@ async function abrirModalConfigurarRecargos() {
     
     const { value: formValues } = await Swal.fire({
         title: 'Configurar Recargos',
+        width: 600,
         html: `
             <div style="text-align: left;">
                 <div class="form-group">
@@ -2520,6 +2530,7 @@ async function cargarDescuentos() {
 async function abrirModalCrearDescuento() {
     const { value: formValues } = await Swal.fire({
         title: 'Crear Nuevo Descuento',
+        width: 600,
         html: `
             <div class="form-group">
                 <label>Nombre del Descuento</label>
@@ -2531,7 +2542,7 @@ async function abrirModalCrearDescuento() {
                     <input type="number" id="porcentaje-descuento" class="form-control" 
                            min="1" max="100" step="0.1" required>
                     <div class="input-group-append">
-                        <span class="input-group-text">%</span>
+                        <span class="input-group-text" style="height:100%">%</span>
                     </div>
                 </div>
             </div>
@@ -2590,6 +2601,7 @@ async function editarDescuento(id) {
     
     const { value: formValues } = await Swal.fire({
         title: 'Editar Descuento',
+        width: 600,
         html: `
             <div class="form-group">
                 <label>Nombre del Descuento</label>
@@ -2601,7 +2613,7 @@ async function editarDescuento(id) {
                     <input type="number" id="editPorcentajeDescuento" class="form-control" 
                            value="${descuento.porcentaje_descuento}" min="1" max="100" step="0.1">
                     <div class="input-group-append">
-                        <span class="input-group-text">%</span>
+                        <span class="input-group-text" style="height:100%">%</span>
                     </div>
                 </div>
             </div>
