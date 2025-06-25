@@ -206,8 +206,16 @@
         <!-- Vista de Stock -->
         <div id="divStock" style="display: none;">
             <div class="row">
-                <div class="divBotonNuevoCliente">
-                    <button onclick="abrirModalAgregarProducto()" class="btn btn-success botonNuevoCliente">Nuevo Producto</button>
+                <div class="d-flex justify-content-evenly align-items-center mb-3">
+                    <div>
+                        <button onclick="descargarExcelStockProductos()" class="btn btn-light nav-buttons">
+                            <img class="iconosNavegacion" src="./img/iconos/icons8-ms-excel-48.png" alt="excel">
+                            Descargar Excel de Stock</button>
+                    </div>
+                    <div>
+                        <button onclick="abrirModalAgregarProducto()" class="btn btn-success botonNuevoCliente">Nuevo Producto</button>
+                    </div>
+
                 </div>
                 <div class="">
                     <div class="divBotonLimpiarFiltro">

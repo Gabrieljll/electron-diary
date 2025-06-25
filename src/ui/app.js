@@ -835,10 +835,9 @@ async function editarCombo(idCombo) {
                     detalles
                 );
 
-                const combosActualizados = await main.getCombos();
-                actualizarVistaCombos(combosActualizados);
-
+                await main.getCombos();
                 Swal.fire('Éxito', '¡El combo ha sido actualizado correctamente!', 'success');
+                actualizarCombos();
             } catch (error) {
                 console.error('Error al actualizar el combo:', error);
                 Swal.fire('Error', 'Hubo un problema al actualizar el combo.', 'error');
@@ -1520,17 +1519,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Función para obtener la fecha local correcta
+    const obtenerFechaLocal = () => {
+        const ahora = new Date();
+        // Ajustamos para UTC-3 (Argentina) - cambia el offset según tu zona horaria
+        const offset = ahora.getTimezoneOffset() + 180; // 180 minutos = 3 horas
+        const fechaAjustada = new Date(ahora.getTime() - offset * 60000);
+        return fechaAjustada.toISOString().split('T')[0];
+    };
+
+    // Configurar campo de fecha de venta
     const fechaVentaInput = document.getElementById('fechaVenta');
     if (fechaVentaInput) {
-        const hoy = new Date().toISOString().split('T')[0];
-        fechaVentaInput.value = hoy;
+        fechaVentaInput.value = obtenerFechaLocal();
     }
 
+    // Configurar campo de fecha para listar ventas
     const fechaVentasInput = document.getElementById('fechaVentas');
     if (fechaVentasInput) {
-        const hoy = new Date().toISOString().split('T')[0];
-        fechaVentasInput.value = hoy;
+        fechaVentasInput.value = obtenerFechaLocal();
     }
+
     cargarVentasPorFecha();
 });
 
@@ -1656,6 +1665,31 @@ async function init() {
 // =======================================================
 // FUNCIONES PARA DESCARGA DE EXCEL
 // =======================================================
+async function descargarExcelStockProductos() {
+    try {
+        const filePath = await ipcRenderer.invoke('descargar-stock-productos');
+        
+        // Crear enlace para descarga
+        const link = document.createElement('a');
+        link.href = `file://${filePath}`;
+        link.download = `stock_productos_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Mostrar notificación
+        Swal.fire({
+            title: 'Éxito',
+            text: 'El archivo Excel se ha descargado correctamente en tu escritorio',
+            icon: 'success',
+            timer: 3000
+        });
+    } catch (error) {
+        console.error("Error al descargar el stock:", error);
+        Swal.fire('Error', 'No se pudo generar el archivo Excel', 'error');
+    }
+}
+
 async function descargarExcelComprasRealizadas(){
     try {
         const filePath = await ipcRenderer.invoke('descargar-compras-realizadas');

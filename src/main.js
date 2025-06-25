@@ -4,6 +4,93 @@ const ExcelJS = require('exceljs');
 const path = require('path');
 
 
+// En main.js
+async function generarExcelStockProductos() {
+    const conn = await getConnection();
+    
+    const [productos] = await conn.query(`
+        SELECT id, nombre, precio, descripcion, 
+               cantidad_disponible, precio_delivery,
+               (precio * cantidad_disponible) as valor_total,
+               (precio_delivery * cantidad_disponible) as valor_total_delivery
+        FROM stock_productos
+        ORDER BY nombre
+    `);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Stock');
+
+    // Estilos
+    const headerStyle = {
+        font: { bold: true, color: { argb: 'FFFFFFFF' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0070C0' } },
+        alignment: { vertical: 'middle', horizontal: 'center' }
+    };
+
+    // Columnas con estilos
+    worksheet.columns = [
+        { header: 'ID', key: 'id', width: 8, style: { alignment: { horizontal: 'center' } } },
+        { header: 'Producto', key: 'nombre', width: 30 },
+        { header: 'Precio Local', key: 'precio', width: 15, style: { numFmt: '$#,##0.00' } },
+        { header: 'Precio Delivery', key: 'precio_delivery', width: 15, style: { numFmt: '$#,##0.00' } },
+        { header: 'Stock', key: 'cantidad_disponible', width: 10, style: { alignment: { horizontal: 'center' } } },
+        { header: 'Valor Total Local', key: 'valor_total', width: 18, style: { numFmt: '$#,##0.00' } },
+        { header: 'Valor Total Delivery', key: 'valor_total_delivery', width: 20, style: { numFmt: '$#,##0.00' } },
+        { header: 'Descripción', key: 'descripcion', width: 40 }
+    ];
+
+    // Aplicar estilo a la cabecera
+    const headerRow = worksheet.getRow(1);
+    headerRow.eachCell(cell => {
+        cell.style = headerStyle;
+    });
+
+    // Agregar datos
+    productos.forEach(p => {
+        worksheet.addRow({
+            id: p.id,
+            nombre: p.nombre,
+            precio: p.precio,
+            precio_delivery: p.precio_delivery,
+            cantidad_disponible: p.cantidad_disponible,
+            valor_total: p.valor_total,
+            valor_total_delivery: p.valor_total_delivery,
+            descripcion: p.descripcion || ''
+        });
+    });
+
+    // Congelar la primera fila (cabecera)
+    worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+    // Autoajustar columnas
+    worksheet.columns.forEach(column => {
+        let maxLength = 0;
+        column.eachCell({ includeEmpty: true }, cell => {
+            const length = cell.value ? cell.value.toString().length : 0;
+            if (length > maxLength) maxLength = length;
+        });
+        column.width = Math.min(Math.max(maxLength + 2, column.header.length + 2), 50);
+    });
+
+
+    const filePath = path.join(app.getPath('desktop'), `Stock_Productos_${formatDate(new Date())}.xlsx`);
+    await workbook.xlsx.writeFile(filePath);
+    
+    return filePath;
+}
+
+function formatDate(date) {
+    return date.toISOString()
+        .replace(/T/, '_')
+        .replace(/\..+/, '')
+        .replace(/:/g, '-');
+}
+
+// Registrar el manejador en ipcMain
+ipcMain.handle('descargar-stock-productos', async () => {
+    return await generarExcelStockProductos();
+});
+
 async function generarExcelGananciasDelDia(fecha) {
     const conn = await getConnection();
 
