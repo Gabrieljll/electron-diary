@@ -1003,6 +1003,7 @@ async function cargarVentasPorFecha(fecha = null) {
         const ventaItem = document.createElement('li');
         ventaItem.classList.add('list-group-item');
         let descuentoAplicado = (venta.nombre_descuento) ? venta.nombre_descuento+ ' ('+parseInt(venta.porcentaje_descuento)+'%)' : 'Ninguno'
+        let recargoAplicado = (venta.recargo) ? venta.recargo+ ' ('+parseInt(venta.recargo)+'%)' : 'Ninguno'
         ventaItem.innerHTML = `
             <div class="divDetalleVentasYBotones">
                 <div style="width: 50%">
@@ -1012,6 +1013,7 @@ async function cargarVentasPorFecha(fecha = null) {
                     <strong>Teléfono:</strong> ${venta.telefono} <br>
                     <strong>Pagado con:</strong> ${venta.modo_pago} <br>
                     <strong>Descuento aplicado:</strong> ${descuentoAplicado}<br>
+                    <strong>Recargos por método de pago:</strong> ${recargoAplicado}<br>
                     <strong>Total:</strong> ${formatCurrency(venta.total.toFixed(2))}
                 </div>
                 <div class="divBotonesDetalleVentas" style="width: 50%">

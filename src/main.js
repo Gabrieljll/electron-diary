@@ -370,6 +370,7 @@ async function obtenerVentasPorFecha(fecha) {
             vp.telefono,
             vp.modo_pago,
             vp.total,
+            vp.recargo
             vp.id_descuento,
             d.nombre AS nombre_descuento,
             d.porcentaje_descuento,
@@ -408,6 +409,7 @@ async function obtenerVentasPorFecha(fecha) {
                 nombre_descuento: row.nombre_descuento,
                 porcentaje_descuento: row.porcentaje_descuento,
                 total: row.total,
+                recargo: row.recargo,
                 horario: row.horario,
                 productos: [],
                 combos: []
@@ -515,11 +517,23 @@ async function crearVentaProducto({
                 id_descuento = null;
             }
         }
+        let recargoPorMetodoPago = null
+        if (metodoPago === "credito" || metodoPago === "debito"){
+            const [recargo] = await conn.query(
+                'SELECT * FROM recargos WHERE metodo_pago = ?', 
+                [metodoPago]
+            );
+            if(recargo.length !== 0){
+                recargoPorMetodoPago = recargo[0].porcentaje_recargo
+            }
+        }
+
+        console.log(recargoPorMetodoPago)
 
         const sql = `
         INSERT INTO venta_producto 
-        (id_orden, nombre_cliente, telefono, direccion, costo_envio, modo_pago, total, fecha, id_descuento) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        (id_orden, nombre_cliente, telefono, direccion, costo_envio, modo_pago, total, fecha, id_descuento, recargo) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         
         const [result] = await conn.query(sql, [
             idOrden, 
@@ -530,7 +544,8 @@ async function crearVentaProducto({
             metodoPago, 
             total, 
             fecha,
-            id_descuento
+            id_descuento,
+            recargoPorMetodoPago
         ]);
 
         return result.insertId;
