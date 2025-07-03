@@ -46,161 +46,167 @@
                 </button>
             </div>
         </nav>
-        <!-- Botones de la vista de Ventas -->
-        <div id="botonesDetalleVentas" class="botonesDetalleVentas" style="display: flex;">
-            <button class="btn btn-dark boton-detalle" onclick="mostrarVentas('total')">
-                Ventas del día: <span id="ventas-dia-total">Cargando...</span>
-            </button>
-        
-            <button class="btn btn-dark boton-detalle" onclick="mostrarVentas('local')">
-                Ventas en local del día: <span id="ventas-dia-local">Cargando...</span>
-            </button>
-        
-            <button class="btn btn-dark boton-detalle" onclick="mostrarVentas('delivery')">
-                Ventas por delivery del día: <span id="ventas-dia-delivery">Cargando...</span>
-            </button>
-        
-            <button class="btn btn-dark boton-detalle" onclick="abrirModalVentasMes()">
-                Ventas del mes...
-            </button>
-        </div>
-        <!-- Vista de Ventas -->
-        <div id="divVentas" style="display: flex;">
-            <div class="divRealizarVenta">
-                <div style="display: flex;justify-content: center;align-items: center;width: 100%;">
-                    <h2 style="text-align: center;">Realizar Venta</h2>
-                </div>
-                <div style="display: flex; justify-content: start; align-items: start; margin-top: 20px;">
-                    <div class="card">
-                        <div class="col-md-12 p-4 my-auto">
-                            <form id="formulario_venta">
-                                <div class="form-group">
-                                    <label class="mt-2" for="fechaVenta"><h5>Fecha de la Venta</h5></label>
-                                    <input 
-                                        type="date" 
-                                        id="fechaVenta" 
-                                        class="form-control" 
-                                        value="${new Date().toISOString().split('T')[0]}" 
-                                        required
-                                    >
-                                </div>
-                                <div class="form-group">
-                                    <label class="mt-2" for="nombreCliente"><h5>Nombre del cliente</h5></label>
-                                    <input type="text" id="nombreCliente" placeholder="Nombre del comprador" class="form-control" required>
-                                    <ul id="clienteSugerencias" class="list-group mt-2" style="display: none; position: absolute; z-index: 10; max-height: 200px; overflow-y: auto;"></ul>
-                                </div>
-                                <div class="form-group">
-                                    <label class="mt-2" for="telefono"><h5>Telefono</h5></label>
-                                    <input type="number" id="telefono" placeholder="telefono" class="form-control" required>
-                                </div>
 
-                                <div class="form-group">
-                                    <label class="mt-2" for="tipoVenta"><h5>Tipo de Venta</h5></label>
-                                    <select id="tipoVenta" class="form-control" onchange="actualizarTipoVenta()">
-                                        <option value="local">Local</option>
-                                        <option value="delivery">Delivery</option>
-                                    </select>
-                                </div>
-
-                                
-                                <div class="form-group">
-                                    <label class="mt-2" for="direccion"><h5>Dirección</h5></label>
-                                    <input type="text" id="direccion" placeholder="Dirección" class="form-control">
-                                </div>
-
-
-
-                                <!-- Campo de productos con cantidad seleccionable en la misma línea -->
-                                <div class="form-group">
-                                    <label class="mt-2" for="productos"><h5>Productos</h5></label>
-                                    <div id="productosSeleccionados">
-                                        <div class="input-group mb-3">
-                                            <!-- Cambiamos el select a un input de texto -->
-                                            <input type="text" id="inputProducto" class="form-control" placeholder="Buscar producto...">
-                                            <ul id="dropdownProductos" class="dropdown-menu" style="width: 100%; display: none; margin-top: 10%;">
-                                                <!-- Las opciones de productos se cargarán aquí dinámicamente -->
-                                            </ul>
-                                            <input type="number" id="cantidadProducto" class="form-control" placeholder="Cantidad" style="max-width: 140px;">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <button type="button" onclick="agregarProductoVenta()" class="btn btn-info mt-1">Agregar Producto</button>
-
-                                <div class="form-group">
-                                    <label class="mt-2" for="costoEnvio"><h5>Costo del envío</h5></label>
-                                    <input type="number" id="costoEnvio" placeholder="Costo del envío" class="form-control" onchange="actualizarTotalConEnvio()">
-                                </div>
-                                <div class="form-group">
-                                    <label for="metodoPago">Método de Pago</label>
-                                    <select id="metodoPago" class="form-control">
-                                        <option value="efectivo">Efectivo</option>
-                                        <option value="transferencia">Transferencia</option>
-                                        <option value="debito">Débito</option>
-                                        <option value="credito">Crédito</option>
-                                        <option value="efectivo_y_otro">En partes: efectivo y otro</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="inputDescuento">Descuento</label>
-                                    <div class="input-group">
-                                        <input type="text" id="inputDescuento" class="form-control" placeholder="Buscar descuento...">
-                                        <ul id="dropdownDescuentos" class="dropdown-menu" style="width: 100%; display: none;"></ul>
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label class="mt-2" for="total"><h5>Total con envío incluído</h5></label>
-                                    <span id="totalConEnvio" class="form-control" style="display: inline-block; background: #f7f7f7; padding: 8px;">$0.00</span>
-                                </div>
-                                <button type="button" onclick="registrarNuevaVenta()" class="btn btn-success mt-1 btn-guardar">Guardar</button>
-                            </form>
-                        </div>
-    
-                    </div>
-                    <!-- Contenedor para mostrar el resumen de productos y cantidades seleccionados -->
-                    <div class="card p-4 mx-5" id="resumenVenta">
-                        <h5>Resumen de Productos</h5>
-                        <ul id="listaResumen" class="list-group">
-                            <!-- Aquí se agregarán los productos y cantidades seleccionadas -->
-                        </ul>
-                        <div id="desgloseRecargo" style="display: none; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
-                            <p><strong>Desglose:</strong></p>
-                            <p>Subtotal: <span id="subtotal">$0.00</span></p>
-                            <p>Recargo: <span id="montoRecargo">$0.00</span> (<span id="porcentajeRecargo">0</span>%)</p>
-                            <p>Total con recargo: <span id="totalConRecargo">$0.00</span></p>
-                        </div>
-                        <div id="desgloseDescuento" style="display: none; margin-top: 1rem; padding: 10px; background: #f8f9fa; border-radius: 5px;">
-                            <p><strong>Descuento aplicado:</strong> <span id="porcentajeDescuento">0</span>% (<span id="montoDescuento">$0.00</span>)</p>
-                        </div>
-                        <div id="desgloseTotalFinal">
-                            <h3><strong>Total Final:</strong> <span id="totalFinal">$0.00</span></h3>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            
-            <div class="divVentasRealizadas">
-                <h2>Ventas realizadas</h2>
+        <div style="display: flex; justify-content: center; align-items: start; flex-direction: row-reverse; width: auto;">
+            <!-- Botones de la vista de Ventas -->
+            <div id="botonesDetalleVentas" class="botonesDetalleVentas" style="display: flex; flex-direction: column; justify-content: start; align-items: center;">
+                <div>
+                    <button class="btn btn-dark boton-detalle" onclick="mostrarVentas('total')">
+                        Ventas del día: <span id="ventas-dia-total">Cargando...</span>
+                    </button>
                 
-                <!-- Selector de fecha -->
-                <div class="form-group" style="display: flex; justify-content: space-between; align-items: end; width: 400px;">
-                    <div>
-                        <label for="fechaVentas">Seleccionar Fecha:</label>
-                        <input type="date" id="fechaVentas" class="form-control" onchange="cargarVentasPorFecha()">
-                    </div>
-                    <button class="btn btn-primary" style="width: 200px; height: 50px; font-size: small; letter-spacing: 1px;" onclick="descargarGananciasDelDia()">
-                        <img style="width: 30px; margin-right: 5px;" src="./img/iconos/download_white.png" alt="excel">
-                        Ganancias del Día
+                    <button class="btn btn-dark boton-detalle" onclick="mostrarVentas('local')">
+                        Ventas en local del día: <span id="ventas-dia-local">Cargando...</span>
+                    </button>
+                
+                    <button class="btn btn-dark boton-detalle" onclick="mostrarVentas('delivery')">
+                        Ventas por delivery del día: <span id="ventas-dia-delivery">Cargando...</span>
+                    </button>
+                
+                    <button class="btn btn-dark boton-detalle" onclick="abrirModalVentasMes()">
+                        Ventas del mes...
                     </button>
                 </div>
-                
-                <!-- Contenedor de la lista de ventas realizadas -->
-                <ul id="listaVentasRealizadas" class="list-group mt-3">
-                    <!-- Aquí se mostrarán las ventas realizadas -->
-                </ul>
+                <div class="divVentasRealizadas">
+                    <h2>Ventas realizadas</h2>
+                    
+                    <!-- Selector de fecha -->
+                    <div class="form-group" style="display: flex; justify-content: space-between; align-items: end; width: 400px;">
+                        <div>
+                            <label for="fechaVentas">Seleccionar Fecha:</label>
+                            <input type="date" id="fechaVentas" class="form-control" onchange="cargarVentasPorFecha()">
+                        </div>
+                        <button class="btn btn-primary" style="width: 200px; height: 50px; font-size: small; letter-spacing: 1px;" onclick="descargarGananciasDelDia()">
+                            <img style="width: 30px; margin-right: 5px;" src="./img/iconos/download_white.png" alt="excel">
+                            Ganancias del Día
+                        </button>
+                    </div>
+                    
+                    <!-- Contenedor de la lista de ventas realizadas -->
+                    <ul id="listaVentasRealizadas" class="list-group mt-3">
+                        <!-- Aquí se mostrarán las ventas realizadas -->
+                    </ul>
+                </div>
             </div>
-            
+            <!-- Vista de Ventas -->
+            <div id="divVentas">
+                <div class="divRealizarVenta">
+                    <div style="display: flex;justify-content: center;align-items: center;width: 100%;">
+                        <h2 style="text-align: center;">Realizar Venta</h2>
+                    </div>
+                    <div style="display: flex; justify-content: start; align-items: start; margin-top: 20px;">
+                        <div class="card">
+                            <div class="col-md-12 p-4 my-auto">
+                                <form id="formulario_venta">
+                                    <div class="form-group">
+                                        <label class="mt-2" for="fechaVenta"><h5>Fecha de la Venta</h5></label>
+                                        <input 
+                                            type="date" 
+                                            id="fechaVenta" 
+                                            class="form-control" 
+                                            value="${new Date().toISOString().split('T')[0]}" 
+                                            required
+                                        >
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="mt-2" for="nombreCliente"><h5>Nombre del cliente</h5></label>
+                                        <input type="text" id="nombreCliente" placeholder="Nombre del comprador" class="form-control" required>
+                                        <ul id="clienteSugerencias" class="list-group mt-2" style="display: none; position: absolute; z-index: 10; max-height: 200px; overflow-y: auto;"></ul>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="mt-2" for="telefono"><h5>Telefono</h5></label>
+                                        <input type="number" id="telefono" placeholder="telefono" class="form-control" required>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="mt-2" for="tipoVenta"><h5>Tipo de Venta</h5></label>
+                                        <select id="tipoVenta" class="form-control" onchange="actualizarTipoVenta()">
+                                            <option value="local">Local</option>
+                                            <option value="delivery">Delivery</option>
+                                        </select>
+                                    </div>
+
+                                    
+                                    <div class="form-group">
+                                        <label class="mt-2" for="direccion"><h5>Dirección</h5></label>
+                                        <input type="text" id="direccion" placeholder="Dirección" class="form-control">
+                                    </div>
+
+
+
+                                    <!-- Campo de productos con cantidad seleccionable en la misma línea -->
+                                    <div class="form-group">
+                                        <label class="mt-2" for="productos"><h5>Productos</h5></label>
+                                        <div id="productosSeleccionados">
+                                            <div class="input-group mb-3">
+                                                <!-- Cambiamos el select a un input de texto -->
+                                                <input type="text" id="inputProducto" class="form-control" placeholder="Buscar producto...">
+                                                <ul id="dropdownProductos" class="dropdown-menu" style="width: 100%; display: none; margin-top: 10%;">
+                                                    <!-- Las opciones de productos se cargarán aquí dinámicamente -->
+                                                </ul>
+                                                <input type="number" id="cantidadProducto" class="form-control" placeholder="Cantidad" style="max-width: 140px;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="button" onclick="agregarProductoVenta()" class="btn btn-info mt-1">Agregar Producto</button>
+
+                                    <div class="form-group">
+                                        <label class="mt-2" for="costoEnvio"><h5>Costo del envío</h5></label>
+                                        <input type="number" id="costoEnvio" placeholder="Costo del envío" class="form-control" onchange="actualizarTotalConEnvio()">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="metodoPago">Método de Pago</label>
+                                        <select id="metodoPago" class="form-control">
+                                            <option value="efectivo">Efectivo</option>
+                                            <option value="transferencia">Transferencia</option>
+                                            <option value="debito">Débito</option>
+                                            <option value="credito">Crédito</option>
+                                            <option value="efectivo_y_otro">En partes: efectivo y otro</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="inputDescuento">Descuento</label>
+                                        <div class="input-group">
+                                            <input type="text" id="inputDescuento" class="form-control" placeholder="Buscar descuento...">
+                                            <ul id="dropdownDescuentos" class="dropdown-menu" style="width: 100%; display: none;"></ul>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="mt-2" for="total"><h5>Total con envío incluído</h5></label>
+                                        <span id="totalConEnvio" class="form-control" style="display: inline-block; background: #f7f7f7; padding: 8px;">$0.00</span>
+                                    </div>
+                                    <button type="button" onclick="registrarNuevaVenta()" class="btn btn-success mt-1 btn-guardar">Guardar</button>
+                                </form>
+                            </div>
+        
+                        </div>
+                        <!-- Contenedor para mostrar el resumen de productos y cantidades seleccionados -->
+                        <div class="card p-4 mx-5" id="resumenVenta">
+                            <h5>Resumen de Productos</h5>
+                            <ul id="listaResumen" class="list-group">
+                                <!-- Aquí se agregarán los productos y cantidades seleccionadas -->
+                            </ul>
+                            <div id="desgloseRecargo" style="display: none; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                                <p><strong>Desglose:</strong></p>
+                                <p>Subtotal: <span id="subtotal">$0.00</span></p>
+                                <p>Recargo: <span id="montoRecargo">$0.00</span> (<span id="porcentajeRecargo">0</span>%)</p>
+                                <p>Total con recargo: <span id="totalConRecargo">$0.00</span></p>
+                            </div>
+                            <div id="desgloseDescuento" style="display: none; margin-top: 1rem; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                                <p><strong>Descuento aplicado:</strong> <span id="porcentajeDescuento">0</span>% (<span id="montoDescuento">$0.00</span>)</p>
+                            </div>
+                            <div id="desgloseTotalFinal">
+                                <h3><strong>Total Final:</strong> <span id="totalFinal">$0.00</span></h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                
+                
+                
+            </div>
         </div>
     
         <!-- Vista de Stock -->

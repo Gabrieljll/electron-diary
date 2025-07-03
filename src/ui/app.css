@@ -104,14 +104,6 @@ h2{
     margin-top: 15px !important;
 }
 
-#divVentas{
-    display: flex;
-    width: 100%;
-    justify-content: space-between;
-    align-items: start;
-    padding: 0 150px;
-    padding-bottom: 50px;
-}
 
 .card h5{
     letter-spacing: 1.1px !important;
@@ -130,11 +122,11 @@ h2{
 }
 
 .logoImg{
-    width: 350px;
+    width: 300px;
     float: left;
     position: absolute;
-    left: 50px;
-    top: -30px;
+    left: -45px;
+    top: -25px;
     mask-image: linear-gradient(white 70%, transparent) !important;
 }
 
@@ -156,7 +148,6 @@ h2{
     justify-content: center;
     align-items: center;
     flex-direction: column;
-    width: 30%;
 }
 
 #listaVentasRealizadas{
@@ -194,7 +185,7 @@ nav{
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-bottom: 60px;
+    margin-bottom: 30px;
     /* background: black; */
     position: relative;
 }
