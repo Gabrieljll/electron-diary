@@ -987,7 +987,7 @@ async function cargarVentasPorFecha(fecha = null) {
             const precio = venta.direccion === 'local' ? producto.precio : producto.precio_delivery;
             return `
                 <li class="list-group-item">
-                    ${producto.cantidad || 1} x ${producto.nombre} - ${formatCurrency(precio?.toFixed(2)) || '0.00'}
+                    ${producto.nombre} x ${producto.cantidad || 1} - ${formatCurrency(precio) || '0.00'} (c/u) - Final: ${formatCurrency(precio * producto.cantidad) } 
                 </li>`;
         }).join('');
 
@@ -996,7 +996,7 @@ async function cargarVentasPorFecha(fecha = null) {
             const precio = venta.direccion === 'local' ? combo.precio : combo.precio_delivery;
             return `
                 <li class="list-group-item">
-                    ${combo.cantidad} x ${combo.nombre} - ${formatCurrency((combo.cantidad * precio).toFixed(2))}
+                     ${combo.nombre} x ${combo.cantidad} - ${formatCurrency((combo.cantidad * precio).toFixed(2))}
                     <br>
                     <small>Incluye: ${combo.productos.map(p => p.nombre).join(', ')}</small>
                 </li>`;
@@ -1021,6 +1021,7 @@ async function cargarVentasPorFecha(fecha = null) {
                 </div>
                 <div class="divBotonesDetalleVentas" style="width: 50%">
                     <div>
+                        <button class="btn btn-dark btn-sm mt-1 btn-borrarVenta" onclick="imprimirTicket(${venta.id})">Imprimir ticket</button>
                         <button class="btn btn-danger btn-sm mt-1 btn-borrarVenta" onclick="eliminarVenta(${venta.id})">Eliminar</button>
                     </div>
                     <div style="margin-top: 30%;">
@@ -1160,7 +1161,9 @@ function validarStock() {
     const nombreProducto = inputProducto.value; // El texto que se muestra en el input
     const stockDisponible = parseInt(inputProducto.dataset.stock); // Stock disponible desde el dataset
     const cantidadSeleccionada = parseInt(inputCantidad.value);
-
+    
+    console.log("nombreProducto")
+    console.log(nombreProducto)
     if (!idProducto || !nombreProducto) {
         console.error('No se seleccionó un producto válido.');
         return;
@@ -1665,6 +1668,60 @@ async function init() {
 document.getElementById("filtroTextoCombo").addEventListener("input", filtrarPorTextoCombo);
 async function init() {
     await actualizarProductos();
+}
+
+
+
+// =======================================================
+// FUNCION para imprimir tickets
+// =======================================================
+async function imprimirTicket(idVenta) {
+    try {
+        // Obtener los datos completos de la venta
+        const venta = await main.obtenerVentaPorId(idVenta);
+        // Preparar los datos para el ticket
+        const ticketData = {
+            header: '=== POMBERO ALCOHOLIC ===',
+            fecha: new Date().toLocaleDateString(),
+            hora: venta.horario.split(':').slice(0, 2).join(':'),
+            pago: venta.modo_pago,
+            descuento: (venta.nombre_descuento) ? venta.nombre_descuento+ ' ('+parseInt(venta.porcentaje_descuento)+'%)' : 'Ninguno',
+            recargo: (venta.recargo) ? venta.recargo+ ' ('+parseInt(venta.recargo)+'%)' : 'Ninguno',
+            productos: [],
+            total: venta.total.toFixed(2)
+        };
+
+        // Agregar productos individuales
+        venta.productos.forEach(producto => {
+            const precio = venta.direccion === 'local' ? producto.precio : producto.precio_delivery;
+            ticketData.productos.push({
+                nombre: producto.nombre,
+                cantidad: producto.cantidad || 1,
+                precio: precio.toFixed(2),
+                subtotal: (producto.cantidad * precio).toFixed(2)
+            });
+        });
+
+        // Agregar combos
+        venta.combos.forEach(combo => {
+            const precio = venta.direccion === 'local' ? combo.precio : combo.precio_delivery;
+            ticketData.productos.push({
+                nombre: `COMBO: ${combo.nombre}`,
+                cantidad: combo.cantidad,
+                precio: formatCurrency(precio.toFixed(2)),
+                subtotal: (combo.cantidad * precio).toFixed(2),
+            });
+        });
+
+        console.log('Datos del ticket:', ticketData);
+        
+        // Enviar datos al proceso principal para imprimir
+        ipcRenderer.invoke('print-ticket', ticketData)
+            .then(() => console.log("Ticket impreso con éxito"))
+            .catch(err => console.error("Error al imprimir:", err));
+    } catch (error) {
+        console.error("Error al obtener datos de la venta:", error);
+    }
 }
 
 

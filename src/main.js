@@ -2,7 +2,16 @@ const { BrowserWindow, Notification, webContents, ipcMain, app } = require('elec
 const { getConnection } = require('./database');
 const ExcelJS = require('exceljs');
 const path = require('path');
+const escpos = require('escpos');
+const fs = require('fs');
+const os = require('os');
+const tmp = require('tmp');
 
+escpos.USB = require('escpos-usb');
+const sharp = require('sharp');
+require('usb');
+process.env.USB_DIRECT_ACCESS = 'true';
+app.commandLine.appendSwitch('no-sandbox');
 
 // En main.js
 async function generarExcelStockProductos() {
@@ -357,6 +366,113 @@ async function getProductos() {
     const conn = await getConnection();
     const [fichas] = await conn.query('SELECT * FROM stock_productos ORDER BY id DESC');
     return fichas;
+}
+
+async function obtenerVentaPorId(idVenta) {
+    const conn = await getConnection();
+
+    const [rows] = await conn.query(`
+        SELECT 
+            vp.id_orden AS id,
+            vp.nombre_cliente AS cliente,
+            vp.direccion,
+            vp.telefono,
+            vp.modo_pago,
+            vp.total,
+            vp.recargo,
+            vp.id_descuento,
+            d.nombre AS nombre_descuento,
+            d.porcentaje_descuento,
+            COALESCE(o.cantidad, 0) AS producto_cantidad,
+            p.nombre AS producto_nombre,
+            p.precio AS producto_precio,
+            p.precio_delivery AS producto_precio_delivery,
+            oc.cantidad AS combo_cantidad,
+            c.nombre AS combo_nombre,
+            c.precio AS combo_precio,
+            c.precio_delivery AS combo_precio_delivery,
+            cd.id_producto AS producto_en_combo_id,
+            sp.nombre AS producto_en_combo_nombre,
+            TIME(vp.fecha) AS horario
+        FROM venta_producto vp
+        LEFT JOIN descuentos d ON vp.id_descuento = d.id
+        LEFT JOIN orden_producto o ON vp.id_orden = o.id_orden
+        LEFT JOIN stock_productos p ON o.id_producto = p.id
+        LEFT JOIN orden_combo oc ON vp.id_orden = oc.id_orden
+        LEFT JOIN combo_productos c ON oc.id_combo = c.id
+        LEFT JOIN combo_detalle cd ON c.id = cd.id_combo
+        LEFT JOIN stock_productos sp ON cd.id_producto = sp.id
+        WHERE vp.id_orden = ?
+        ORDER BY oc.id_combo, o.id_producto;
+    `, [idVenta]);
+
+    if (rows.length === 0) {
+        throw new Error('No se encontró la venta con el ID especificado');
+    }
+
+    // Procesamiento igual que en obtenerVentasPorFecha
+    const ventasAgrupadas = rows.reduce((acc, row) => {
+        if (!acc[row.id]) {
+            acc[row.id] = {
+                id: row.id,
+                cliente: row.cliente,
+                direccion: row.direccion,
+                telefono: row.telefono,
+                modo_pago: row.modo_pago,
+                nombre_descuento: row.nombre_descuento,
+                porcentaje_descuento: row.porcentaje_descuento,
+                total: row.total,
+                recargo: row.recargo,
+                horario: row.horario,
+                productos: [],
+                combos: []
+            };
+        }
+
+        const venta = acc[row.id];
+
+        // Procesar combos
+        if (row.combo_nombre) {
+            let comboExistente = venta.combos.find(c => c.nombre === row.combo_nombre);
+            if (!comboExistente) {
+                comboExistente = {
+                    cantidad: row.combo_cantidad,
+                    nombre: row.combo_nombre,
+                    precio: row.combo_precio,
+                    precio_delivery: row.combo_precio_delivery,
+                    productos: []
+                };
+                venta.combos.push(comboExistente);
+            }
+
+            if (row.producto_en_combo_nombre) {
+                const productoEnComboExistente = comboExistente.productos.find(p => p.nombre === row.producto_en_combo_nombre);
+                if (!productoEnComboExistente) {
+                    comboExistente.productos.push({
+                        nombre: row.producto_en_combo_nombre
+                    });
+                }
+            }
+        }
+
+        // Procesar productos individuales
+        if (row.producto_nombre && !venta.combos.some(combo =>
+            combo.productos.some(producto => producto.nombre === row.producto_nombre))) {
+            const productoExistente = venta.productos.find(p => p.nombre === row.producto_nombre);
+            if (!productoExistente) {
+                venta.productos.push({
+                    cantidad: row.producto_cantidad,
+                    nombre: row.producto_nombre,
+                    precio: row.producto_precio,
+                    precio_delivery: row.producto_precio_delivery
+                });
+            }
+        }
+
+        return acc;
+    }, {});
+
+    return Object.values(ventasAgrupadas)[0]; // Retorna solo la venta específica
 }
 
 async function obtenerVentasPorFecha(fecha) {
@@ -1013,6 +1129,188 @@ function createWindow() {
     window.show();
 }
 
+
+// Función para imprimir logo
+async function printLogo(printer, logoPath) {
+  return new Promise((resolve, reject) => {
+    escpos.Image.load(logoPath, (image) => {
+      if (image instanceof Error) return reject(image);
+      
+      try {
+        printer.align('ct')
+               .image(image, 'D24')
+               .feed(2);
+        resolve(true);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+async function generateQRBuffer(text) {
+  const QRCode = require('qrcode');
+  try {
+    return await QRCode.toBuffer(text, {
+      errorCorrectionLevel: 'H',
+      width: 200,
+      margin: 1
+    });
+  } catch (error) {
+    console.error('Error generando QR:', error);
+    return null;
+  }
+}
+
+
+async function printQR(printer, text) {
+  const qrBuffer = await generateQRBuffer(text);
+  if (!qrBuffer) return;
+
+  // Crear archivo temporal PNG
+  const tmpPath = tmp.tmpNameSync({ postfix: '.png' });
+  fs.writeFileSync(tmpPath, qrBuffer);
+
+  return new Promise((resolve, reject) => {
+    escpos.Image.load(tmpPath, (qrImage) => {
+      if (qrImage instanceof Error) return reject(qrImage);
+      try {
+        printer.align('CT').image(qrImage, 'D24');
+        resolve(true);
+      } catch (e) {
+        reject(e);
+      } finally {
+        fs.unlink(tmpPath, () => {}); // Limpia el archivo temporal
+      }
+    });
+  });
+}
+
+
+
+function printAligned(printer, leftText, rightText) {
+  // Configuración basada en tus datos reales
+  const TOTAL_WIDTH = 42; // Ajustado a lo que realmente imprime
+  const RIGHT_WIDTH = 10; // Suficiente para "24800.00"
+  
+  // 1. Asegurar texto izquierdo no exceda el espacio
+  const maxLeftWidth = TOTAL_WIDTH - RIGHT_WIDTH;
+  let displayLeft = leftText;
+  
+  if (displayLeft.length > maxLeftWidth) {
+    displayLeft = displayLeft.substring(0, maxLeftWidth - 3) + '...';
+  }
+
+  // 2. Calcular espacios EXACTOS (versión impresora térmica)
+  const spacesCount = maxLeftWidth - displayLeft.length;
+  let spaces = '';
+  for (let i = 0; i < spacesCount; i++) {
+    spaces += ' '; // Espacios ASCII puros
+  }
+
+  // 3. Construir línea (IMPORTANTE: usar text() una sola vez)
+  const line = displayLeft + spaces + rightText;
+  
+  // 4. Configuración compatible con impresoras térmicas
+  printer.font('A')
+         .size(0, 0)
+         .align('LT') // Alineación izquierda sin formato
+         .text(line);
+}
+
+// Versión para el TOTAL (con negrita)
+function printTotal(printer, total) {
+  printAligned(printer, 'TOTAL:', total);
+  printer.style('NORMAL');
+}
+
+// Manejador principal de impresión
+ipcMain.handle('print-ticket', async (event, ticketData) => {
+  try {
+    const device = new escpos.USB();
+    const printer = new escpos.Printer(device, {
+      encoding: 'CP437', //CP850
+      width: 42
+    });
+
+    return new Promise(async (resolve, reject) => {
+      device.open(async (error) => {
+        if (error) return reject(error);
+
+        try {
+          const logoPath = path.join(__dirname, 'assets', 'logo.png');
+
+          // Imprimir logo o texto alternativo
+          if (fs.existsSync(logoPath)) {
+            await printLogo(printer, logoPath).catch(() => {
+            printer.feed(1)
+            });
+          } else {
+            printer.align('lt').style('B').text('POMBERO ALCOHOLIC').feed(1);
+          }
+
+          // Información de la venta
+          printer.align('lt')
+                 .style('A')
+                 .size(0, 0)
+                 .text(`Fecha: ${ticketData.fecha}`)
+                 .text(`Hora: ${ticketData.hora}`)
+                 .text(`Descuento: ${ticketData.descuento}`)
+                 .text(`Recargo: ${ticketData.recargo}`)
+                 .text('----------------')
+                 .text(`Medio de pago: ${ticketData.pago}`)
+                 .size(1, 1)
+                 .text('----------------');
+
+            // Lista de productos
+            printer
+                .size(0, 0)
+                .style('B')
+                .text('PRODUCTOS:')
+                .style('A');
+                ticketData.productos.forEach(producto => {
+                printer.text('----------------')
+                printAligned(printer, `${producto.nombre} x ${producto.cantidad}`, producto.subtotal);
+                
+                if (producto.detalle) {
+                    printer.text(producto.detalle).feed(1);
+                }
+            });
+
+          // Total perfectamente alineado
+          printer.size(1, 1)
+                 .text('----------------')
+                 .style('B') // Negrita para el total
+                .size(0, 0);
+         printTotal(printer, ticketData.total);
+          
+          printer.style('NORMAL');
+
+            // Sección del QR - Versión mejorada
+            printer.size(0,0)
+                .text('----------------')
+                .align('CT')
+                .style('B')
+                .text('Síguenos en Instagram\n')
+                .style('NORMAL')
+           await printQR(printer, 'https://instagram.com/pombero.alcoholic');
+
+            printer.feed(1)
+                    .cut()
+                    .close(() => resolve('Ticket impreso correctamente'));
+
+        } catch (printError) {
+          console.error('Error durante la impresión:', printError);
+          reject(printError);
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Error en el proceso de impresión:', error);
+    throw error;
+  }
+});
+
 module.exports = {
     createWindow,
     obtenerRecargos,
@@ -1022,6 +1320,7 @@ module.exports = {
     borrarRegistroProducto,
     getProductoById,
     obtenerVentasPorFecha,
+    obtenerVentaPorId,
     actualizarStockProducto,
     actualizarComprasCliente,
     agregarProductoAOrden,
