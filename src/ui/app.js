@@ -978,16 +978,30 @@ async function cargarVentasPorFecha(fecha = null) {
     const listaVentas = document.getElementById('listaVentasRealizadas');
     listaVentas.innerHTML = ''; // Limpiar la lista de ventas
 
+    // Función para calcular valores monetarios
+    const calcularValoresVenta = (venta) => {
+        const subtotal = venta.total / 
+                      (1 + (venta.recargo || 0)/100) / 
+                      (1 - (venta.porcentaje_descuento || 0)/100);
+        
+        return {
+            subtotal: subtotal.toFixed(2),
+            recargoEnPesos: venta.recargo ? (subtotal * venta.recargo / 100).toFixed(2) : '0.00',
+            descuentoEnPesos: venta.porcentaje_descuento ? (subtotal * venta.porcentaje_descuento / 100).toFixed(2) : '0.00'
+        };
+    };
+
     // Iterar sobre las ventas
     ventas.forEach(venta => {
         const horaYMinutos = venta.horario.split(':').slice(0, 2).join(':'); // Extrae solo HH:MM
+        const valores = calcularValoresVenta(venta);
 
         // Crear el HTML para los productos independientes
         const productosHTML = venta.productos.map(producto => {
             const precio = venta.direccion === 'local' ? producto.precio : producto.precio_delivery;
             return `
                 <li class="list-group-item">
-                    ${producto.nombre} x ${producto.cantidad || 1} - ${formatCurrency(precio) || '0.00'} (c/u) - Final: ${formatCurrency(precio * producto.cantidad) } 
+                    ${producto.nombre} x ${producto.cantidad || 1} - ${formatCurrency(precio) || '0.00'} (c/u) 
                 </li>`;
         }).join('');
 
@@ -1002,21 +1016,29 @@ async function cargarVentasPorFecha(fecha = null) {
                 </li>`;
         }).join('');
 
+        // Textos para mostrar
+        const descuentoAplicado = venta.nombre_descuento 
+            ? `${venta.porcentaje_descuento}% - ${formatCurrency(valores.descuentoEnPesos)}` 
+            : 'Ninguno';
+        
+        const recargoAplicado = venta.recargo 
+            ? `${venta.recargo}% - ${formatCurrency(valores.recargoEnPesos)}` 
+            : 'Ninguno';
+
         // Crear el elemento de la venta
         const ventaItem = document.createElement('li');
         ventaItem.classList.add('list-group-item');
-        let descuentoAplicado = (venta.nombre_descuento) ? venta.nombre_descuento+ ' ('+parseInt(venta.porcentaje_descuento)+'%)' : 'Ninguno'
-        let recargoAplicado = (venta.recargo) ? venta.recargo+ ' ('+parseInt(venta.recargo)+'%)' : 'Ninguno'
         ventaItem.innerHTML = `
             <div class="divDetalleVentasYBotones">
-                <div style="width: 50%">
+                <div style="width: 60%">
                     <strong>Hora:</strong> ${horaYMinutos} <br>
                     <strong>Cliente:</strong> ${venta.cliente} <br>
                     <strong>Dirección:</strong> ${venta.direccion} <br>
                     <strong>Teléfono:</strong> ${venta.telefono} <br>
                     <strong>Pagado con:</strong> ${venta.modo_pago} <br>
-                    <strong>Descuento aplicado:</strong> ${descuentoAplicado}<br>
-                    <strong>Recargos por método de pago:</strong> ${recargoAplicado}<br>
+                    <strong>Subtotal:</strong> ${formatCurrency(valores.subtotal)}<br>
+                    <strong>Recargos:</strong> ${recargoAplicado}<br>
+                    <strong>Descuento:</strong> ${descuentoAplicado}<br>
                     <strong>Total:</strong> ${formatCurrency(venta.total.toFixed(2))}
                 </div>
                 <div class="divBotonesDetalleVentas" style="width: 50%">
@@ -1679,16 +1701,36 @@ async function imprimirTicket(idVenta) {
     try {
         // Obtener los datos completos de la venta
         const venta = await main.obtenerVentaPorId(idVenta);
-        // Preparar los datos para el ticket
+        
+        // Función para calcular valores monetarios
+        const calcularValoresTicket = (venta) => {
+            const subtotal = venta.total / 
+                          (1 + (venta.recargo || 0)/100) / 
+                          (1 - (venta.porcentaje_descuento || 0)/100);
+            
+            return {
+                subtotal: subtotal.toFixed(2),
+                recargoEnPesos: venta.recargo ? (subtotal * venta.recargo / 100).toFixed(2) : '0.00',
+                descuentoEnPesos: venta.porcentaje_descuento ? (subtotal * venta.porcentaje_descuento / 100).toFixed(2) : '0.00'
+            };
+        };
+
+        // Calcular valores primero
+        const valoresCalculados = calcularValoresTicket(venta);
+
+        // Preparar los datos para el ticket (objeto serializable)
         const ticketData = {
             header: '=== POMBERO ALCOHOLIC ===',
             fecha: new Date().toLocaleDateString(),
             hora: venta.horario.split(':').slice(0, 2).join(':'),
             pago: venta.modo_pago,
-            descuento: (venta.nombre_descuento) ? venta.nombre_descuento+ ' ('+parseInt(venta.porcentaje_descuento)+'%)' : 'Ninguno',
-            recargo: (venta.recargo) ? venta.recargo+ ' ('+parseInt(venta.recargo)+'%)' : 'Ninguno',
-            productos: [],
-            total: venta.total.toFixed(2)
+            recargo: venta.recargo ? `${venta.recargo}%` : 'Ninguno',
+            descuento: venta.nombre_descuento ? `${venta.porcentaje_descuento}%` : 'Ninguno',
+            recargoEnPesos: `$${valoresCalculados.recargoEnPesos}`,
+            descuentoEnPesos: `$${valoresCalculados.descuentoEnPesos}`,
+            subtotal: `$${valoresCalculados.subtotal}`,
+            total: `$${venta.total.toFixed(2)}`,
+            productos: []
         };
 
         // Agregar productos individuales

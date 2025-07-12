@@ -1220,8 +1220,8 @@ function printAligned(printer, leftText, rightText) {
 
 // Versión para el TOTAL (con negrita)
 function printTotal(printer, total) {
-  printAligned(printer, 'TOTAL:', total);
-  printer.style('NORMAL');
+    printAligned(printer, 'TOTAL', total);
+    printer.style('NORMAL');
 }
 
 // Manejador principal de impresión
@@ -1255,8 +1255,6 @@ ipcMain.handle('print-ticket', async (event, ticketData) => {
                  .size(0, 0)
                  .text(`Fecha: ${ticketData.fecha}`)
                  .text(`Hora: ${ticketData.hora}`)
-                 .text(`Descuento: ${ticketData.descuento}`)
-                 .text(`Recargo: ${ticketData.recargo}`)
                  .text('----------------')
                  .text(`Medio de pago: ${ticketData.pago}`)
                  .size(1, 1)
@@ -1282,7 +1280,13 @@ ipcMain.handle('print-ticket', async (event, ticketData) => {
                  .text('----------------')
                  .style('B') // Negrita para el total
                 .size(0, 0);
-         printTotal(printer, ticketData.total);
+            printAligned(printer, 'Subtotal', ticketData.subtotal)
+            printer.text('----------------')
+            printAligned(printer, 'Recargo', `${ticketData.recargo} (${ticketData.recargoEnPesos})` )
+            printer.text('----------------')
+            printAligned(printer, 'Descuento', `${ticketData.descuento} (${ticketData.descuentoEnPesos})`)
+            printer.text('----------------')
+            printTotal(printer, ticketData.total);
           
           printer.style('NORMAL');
 
