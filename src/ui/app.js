@@ -201,7 +201,6 @@ async function cargarProductos() {
         actualizarPreciosSeleccionados();
     });
 
-    console.log('Productos y combos cargados correctamente.');
 }
 
 
@@ -210,8 +209,6 @@ async function agregarProductoVenta() {
     const inputProducto = document.getElementById('inputProducto');
     const inputCantidad = document.getElementById('cantidadProducto');
     const agregarBtn = document.querySelector('button[onclick="agregarProductoVenta()"]');
-    console.log("agregando producto/combo");
-    console.log(inputProducto.dataset);
 
     // Obtener datos del producto o combo seleccionado desde los atributos del input
     const idProducto = inputProducto.dataset.productId; // ID del producto o combo seleccionado
@@ -972,11 +969,63 @@ async function obtenerRecargosActuales() {
     return recargosActuales;
 }
 
-async function cargarVentasPorFecha(fecha = null) {
-    const fechaSeleccionada = fecha || document.getElementById('fechaVentas').value;
-    const ventas = await main.obtenerVentasPorFecha(fechaSeleccionada);
-    const listaVentas = document.getElementById('listaVentasRealizadas');
-    listaVentas.innerHTML = ''; // Limpiar la lista de ventas
+// Función para copiar el resumen de la venta
+async function copiarVentaWhatsApp() {
+    try {
+        // Obtener elementos del DOM
+        const listaResumen = document.getElementById('listaResumen');
+        const subtotalElement = document.getElementById('subtotal');
+        const totalFinalElement = document.getElementById('totalFinal');
+        const costoEnvio = document.getElementById('costoEnvioResumen').textContent
+        const montoDescuento = document.getElementById('montoDescuento').textContent
+        
+        // Obtener texto de los productos
+        const productosText = Array.from(listaResumen.children)
+            .map(item => {
+                // Eliminar el botón de quitar producto del texto
+                const text = item.textContent.replace('x', '').trim();
+                return `• ${text}`;
+            })
+            .join('\n');
+        
+        // Construir el texto completo
+        const texto = `Detalle: \n` +
+                     `${productosText}\n\n` +
+                     `Descuento: ${montoDescuento}\n` +
+                     `Envío: ${costoEnvio}\n` +
+                     `Total Final: ${totalFinalElement.textContent}\n`;
+        
+        // Copiar al portapapeles
+        await navigator.clipboard.writeText(texto);
+        
+        // Mostrar notificación
+        mostrarNotificacion('¡Resumen copiado para WhatsApp!', '#25D366');
+        
+    } catch (error) {
+        console.error('Error al copiar:', error);
+        mostrarNotificacion('Error al copiar', '#dc3545');
+    }
+}
+
+function mostrarNotificacion(){
+    // Mostrar notificación
+    const notificacion = document.createElement('div');
+    notificacion.textContent = '¡Copiado para WhatsApp!';
+    notificacion.style.position = 'fixed';
+    notificacion.style.bottom = '20px';
+    notificacion.style.right = '20px';
+    notificacion.style.backgroundColor = '#25D366';
+    notificacion.style.color = 'white';
+    notificacion.style.padding = '10px 20px';
+    notificacion.style.borderRadius = '5px';
+    notificacion.style.zIndex = '1000';
+    document.body.appendChild(notificacion);
+    
+    setTimeout(() => {
+        document.body.removeChild(notificacion);
+    }, 3000);
+}
+
 
     // Función para calcular valores monetarios
     const calcularValoresVenta = (venta) => {
@@ -991,6 +1040,14 @@ async function cargarVentasPorFecha(fecha = null) {
         };
     };
 
+async function cargarVentasPorFecha(fecha = null) {
+    const fechaSeleccionada = fecha || document.getElementById('fechaVentas').value;
+    const ventas = await main.obtenerVentasPorFecha(fechaSeleccionada);
+    const listaVentas = document.getElementById('listaVentasRealizadas');
+    listaVentas.innerHTML = ''; // Limpiar la lista de ventas
+
+
+
     // Iterar sobre las ventas
     ventas.forEach(venta => {
         const horaYMinutos = venta.horario.split(':').slice(0, 2).join(':'); // Extrae solo HH:MM
@@ -1001,7 +1058,7 @@ async function cargarVentasPorFecha(fecha = null) {
             const precio = venta.direccion === 'local' ? producto.precio : producto.precio_delivery;
             return `
                 <li class="list-group-item">
-                    ${producto.nombre} x ${producto.cantidad || 1} - ${formatCurrency(precio) || '0.00'} (c/u) 
+                    ${producto.nombre} x ${producto.cantidad || 1} - ${formatCurrency(precio*producto.cantidad) || '0.00'}
                 </li>`;
         }).join('');
 
@@ -1041,10 +1098,12 @@ async function cargarVentasPorFecha(fecha = null) {
                     <strong>Descuento:</strong> ${descuentoAplicado}<br>
                     <strong>Total:</strong> ${formatCurrency(venta.total.toFixed(2))}
                 </div>
-                <div class="divBotonesDetalleVentas" style="width: 50%">
+                <div class="divBotonesDetalleVentas" style="width: 40%">
                     <div>
-                        <button class="btn btn-dark btn-sm mt-1 btn-borrarVenta" onclick="imprimirTicket(${venta.id})">Imprimir ticket</button>
-                        <button class="btn btn-danger btn-sm mt-1 btn-borrarVenta" onclick="eliminarVenta(${venta.id})">Eliminar</button>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button class="btn btn-dark btn-sm mx-1 mt-1 btn-borrarVenta" onclick="imprimirTicket(${venta.id})">Imprimir</button>
+                            <button class="btn btn-danger btn-sm mx-1 mt-1 btn-borrarVenta" onclick="eliminarVenta(${venta.id})">Eliminar</button>
+                        </div>
                     </div>
                     <div style="margin-top: 30%;">
                         <button class="btn btn-link btn-sm mt-1 btn-verDetalle" onclick="toggleDetalleVenta(${venta.id})">Ver Detalle</button>
@@ -1184,8 +1243,6 @@ function validarStock() {
     const stockDisponible = parseInt(inputProducto.dataset.stock); // Stock disponible desde el dataset
     const cantidadSeleccionada = parseInt(inputCantidad.value);
     
-    console.log("nombreProducto")
-    console.log(nombreProducto)
     if (!idProducto || !nombreProducto) {
         console.error('No se seleccionó un producto válido.');
         return;
@@ -1272,6 +1329,7 @@ async function actualizarUI() {
         // Actualizar total en la UI
         const totalElement = document.getElementById('totalConEnvio');
         const totalFinalElement = document.getElementById('totalFinal');
+        const costoEnvio = document.getElementById('costoEnvio')
         
         if (totalElement && totalFinalElement) {
             totalElement.textContent = formatCurrency(calculos.totalFinal);
@@ -1290,6 +1348,10 @@ async function actualizarUI() {
         actualizarDesgloseDescuento({
             descuento: calculos.descuento,
             totalFinal: calculos.totalFinal
+        });
+
+        actualizarDesgloseEnvio({
+            costoEnvio: calculos.costoEnvio,
         });
 
         mostrarTotalFinalUI()
@@ -1351,6 +1413,17 @@ function actualizarDesgloseDescuento({ descuento, totalFinal }) {
         desglose.style.display = 'block';
         document.getElementById('montoDescuento').textContent = `-${formatCurrency(descuento)}`;
         document.getElementById('porcentajeDescuento').textContent = descuentoSeleccionado.porcentaje;
+    } else {
+        desglose.style.display = 'none';
+    }
+}
+
+function actualizarDesgloseEnvio({ costoEnvio, totalFinal }) {
+    const desglose = document.getElementById('desgloseEnvio');
+    
+    if (costoEnvio != 0) {
+        desglose.style.display = 'block';
+        document.getElementById('costoEnvioResumen').textContent = `${formatCurrency(costoEnvio)}`;
     } else {
         desglose.style.display = 'none';
     }
@@ -1547,8 +1620,6 @@ document.addEventListener("DOMContentLoaded", () => {
     actualizarTipoVenta();
 });
 
-
-document.addEventListener('DOMContentLoaded', () => {
     // Función para obtener la fecha local correcta
     const obtenerFechaLocal = () => {
         const ahora = new Date();
@@ -1557,6 +1628,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const fechaAjustada = new Date(ahora.getTime() - offset * 60000);
         return fechaAjustada.toISOString().split('T')[0];
     };
+
+document.addEventListener('DOMContentLoaded', () => {
+
 
     // Configurar campo de fecha de venta
     const fechaVentaInput = document.getElementById('fechaVenta');
@@ -1694,6 +1768,15 @@ async function init() {
 
 
 
+function formatearFechaTicket(fechaISO) {
+  const fecha = new Date(fechaISO);
+  const dia = String(fecha.getUTCDate()).padStart(2, '0');
+  const mes = String(fecha.getUTCMonth() + 1).padStart(2, '0');
+  const año = fecha.getUTCFullYear();
+  
+  return `${dia}-${mes}-${año}`;
+}
+
 // =======================================================
 // FUNCION para imprimir tickets
 // =======================================================
@@ -1721,7 +1804,7 @@ async function imprimirTicket(idVenta) {
         // Preparar los datos para el ticket (objeto serializable)
         const ticketData = {
             header: '=== POMBERO ALCOHOLIC ===',
-            fecha: new Date().toLocaleDateString(),
+            fecha: formatearFechaTicket(venta.fecha),
             hora: venta.horario.split(':').slice(0, 2).join(':'),
             pago: venta.modo_pago,
             recargo: venta.recargo ? `${venta.recargo}%` : 'Ninguno',
@@ -2929,12 +3012,21 @@ const formatearFechaLocal = (fecha) => {
 };
 
 const obtenerFechaFinal = (fechaSeleccionada) => {
-    const fechaActual = new Date();
-    if (!fechaSeleccionada) return formatearFechaLocal(fechaActual);
+    const fechaActual = obtenerFechaLocal();
+    if (!fechaSeleccionada) return fechaActual;
     
-    const hoyFormateado = fechaActual.toISOString().slice(0, 10);
-    return (fechaSeleccionada === hoyFormateado)
-        ? formatearFechaLocal(fechaActual)
+    const ahora = new Date();
+    const opciones = {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false // Formato 24hs
+    };
+
+    const horaActual = ahora.toLocaleTimeString('es-AR', opciones);
+    return (fechaSeleccionada === fechaActual)
+        ? `${fechaActual} ${horaActual}`
         : `${fechaSeleccionada} 23:59:00`;
 };
 
@@ -3018,6 +3110,7 @@ async function calcularTotales() {
     }
 }
 
+
 // 2. Función para actualizar solo el resumen de productos
 function actualizarResumenProductos() {
     const listaResumen = document.getElementById('listaResumen');
@@ -3027,7 +3120,7 @@ function actualizarResumenProductos() {
         const productoElemento = document.createElement('li');
         productoElemento.classList.add('list-group-item');
         productoElemento.innerHTML = `
-            <span>${producto.nombre} - ${producto.cantidad} x ${formatCurrency(producto.precio)}</span>
+            <span>${producto.cantidad}  ${producto.nombre} - ${formatCurrency(producto.cantidad * producto.precio)}</span>
             <button class="btn btn-light btn-md m-2 quitarProducto" onclick="quitarProducto(${index})">x</button>
         `;
         listaResumen.appendChild(productoElemento);

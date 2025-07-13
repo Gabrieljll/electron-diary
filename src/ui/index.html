@@ -183,7 +183,12 @@
                         </div>
                         <!-- Contenedor para mostrar el resumen de productos y cantidades seleccionados -->
                         <div class="card p-4 mx-5" id="resumenVenta">
-                            <h5>Resumen de Productos</h5>
+                            <div class="d-flex justify-content-end align-items-center">
+                                <h4>Resumen de Productos</h5>
+                                <button class="btn btn-sm btn-copiar" onclick="copiarVentaWhatsApp()">
+                                    <img style="width:50px;" src="./img/iconos/copy.png">
+                                </button>
+                            </div>
                             <ul id="listaResumen" class="list-group">
                                 <!-- Aquí se agregarán los productos y cantidades seleccionadas -->
                             </ul>
@@ -195,6 +200,9 @@
                             </div>
                             <div id="desgloseDescuento" style="display: none; margin-top: 1rem; padding: 10px; background: #f8f9fa; border-radius: 5px;">
                                 <p><strong>Descuento aplicado:</strong> <span id="porcentajeDescuento">0</span>% (<span id="montoDescuento">$0.00</span>)</p>
+                            </div>
+                            <div id="desgloseEnvio" style="display: none; margin-top: 1rem; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                                <p>Envío: <span id="costoEnvioResumen">$0.00</span></p>
                             </div>
                             <div id="desgloseTotalFinal">
                                 <h3><strong>Total Final:</strong> <span id="totalFinal">$0.00</span></h3>

@@ -381,6 +381,7 @@ async function obtenerVentaPorId(idVenta) {
             vp.total,
             vp.recargo,
             vp.id_descuento,
+            vp.fecha,
             d.nombre AS nombre_descuento,
             d.porcentaje_descuento,
             COALESCE(o.cantidad, 0) AS producto_cantidad,
@@ -423,6 +424,7 @@ async function obtenerVentaPorId(idVenta) {
                 porcentaje_descuento: row.porcentaje_descuento,
                 total: row.total,
                 recargo: row.recargo,
+                fecha: row.fecha,
                 horario: row.horario,
                 productos: [],
                 combos: []
@@ -643,8 +645,6 @@ async function crearVentaProducto({
                 recargoPorMetodoPago = recargo[0].porcentaje_recargo
             }
         }
-
-        console.log(recargoPorMetodoPago)
 
         const sql = `
         INSERT INTO venta_producto 
@@ -1280,13 +1280,13 @@ ipcMain.handle('print-ticket', async (event, ticketData) => {
                  .text('----------------')
                  .style('B') // Negrita para el total
                 .size(0, 0);
-            printAligned(printer, 'Subtotal', ticketData.subtotal)
+            printer.text('Subtotal: '+ticketData.subtotal)
             printer.text('----------------')
-            printAligned(printer, 'Recargo', `${ticketData.recargo} (${ticketData.recargoEnPesos})` )
+            printer.text('Recargo: '+ `${ticketData.recargo} (${ticketData.recargoEnPesos})`)
             printer.text('----------------')
-            printAligned(printer, 'Descuento', `${ticketData.descuento} (${ticketData.descuentoEnPesos})`)
+            printer.text('Descuento: '+`${ticketData.descuento} (${ticketData.descuentoEnPesos})`)
             printer.text('----------------')
-            printTotal(printer, ticketData.total);
+            printer.text('TOTAL: '+ticketData.total)
           
           printer.style('NORMAL');
 
