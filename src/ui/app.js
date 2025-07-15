@@ -1812,6 +1812,7 @@ async function imprimirTicket(idVenta) {
             recargoEnPesos: `$${valoresCalculados.recargoEnPesos}`,
             descuentoEnPesos: `$${valoresCalculados.descuentoEnPesos}`,
             subtotal: `$${valoresCalculados.subtotal}`,
+            costoEnvio:  `$${venta.costoEnvio}`,
             total: `$${venta.total.toFixed(2)}`,
             productos: []
         };

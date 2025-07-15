@@ -382,6 +382,7 @@ async function obtenerVentaPorId(idVenta) {
             vp.recargo,
             vp.id_descuento,
             vp.fecha,
+            vp.costo_envio,
             d.nombre AS nombre_descuento,
             d.porcentaje_descuento,
             COALESCE(o.cantidad, 0) AS producto_cantidad,
@@ -425,6 +426,7 @@ async function obtenerVentaPorId(idVenta) {
                 total: row.total,
                 recargo: row.recargo,
                 fecha: row.fecha,
+                costoEnvio: row.costo_envio,
                 horario: row.horario,
                 productos: [],
                 combos: []
@@ -1229,7 +1231,7 @@ ipcMain.handle('print-ticket', async (event, ticketData) => {
   try {
     const device = new escpos.USB();
     const printer = new escpos.Printer(device, {
-      encoding: 'CP437', //CP850
+      encoding: 'ISO8859-1', //CP850 CP437
       width: 42
     });
 
@@ -1284,9 +1286,11 @@ ipcMain.handle('print-ticket', async (event, ticketData) => {
             printer.text('----------------')
             printer.text('Recargo: '+ `${ticketData.recargo} (${ticketData.recargoEnPesos})`)
             printer.text('----------------')
+            printer.text('Envío: '+ticketData.costoEnvio)
+            printer.text('----------------')
             printer.text('Descuento: '+`${ticketData.descuento} (${ticketData.descuentoEnPesos})`)
             printer.text('----------------')
-            printer.text('TOTAL: '+ticketData.total)
+            printer.text('TOTAL: '+ ticketData.total)
           
           printer.style('NORMAL');
 
@@ -1300,6 +1304,8 @@ ipcMain.handle('print-ticket', async (event, ticketData) => {
            await printQR(printer, 'https://instagram.com/pombero.alcoholic');
 
             printer.feed(1)
+                    .text('Ticket no válido como factura.')
+                    .feed(1)
                     .cut()
                     .close(() => resolve('Ticket impreso correctamente'));
 
