@@ -2,60 +2,46 @@ const {BrowserWindow, Notification, webContents} = require('electron')
 const {getConnection} = require('./database')
 const { ipcMain } = require('electron');
 
-async function nuevaFichaCliente(fichaCliente) {
+async function nuevoProducto(nuevoProducto) {
     try{
         const conn = await getConnection();
-        fichaCliente.precioProducto = parseFloat(fichaCliente.precioProducto)
-        const result = await conn.query('INSERT INTO fichascliente SET ?', fichaCliente)
+        const result = await conn.query('INSERT INTO productos SET ?', nuevoProducto)
 
         new Notification({
-            title: 'Agenda Dinámica',
-            body: 'Nueva ficha de cliente agendada'
+            title: 'Calculadora de precios',
+            body: 'Nuevo producto agregado'
         }).show()
 
-        fichaCliente.id = result.insertId
-        return fichaCliente
+        nuevoProducto.id = result.insertId
+        return nuevoProducto
 
     } catch (error){
         console.log(error)
     }
 }
 
-async function borrarFichaCliente(id) {
+async function borrarProducto(id) {
     const conn = await getConnection()
-    const result = await conn.query('DELETE FROM fichascliente WHERE id = ?', id)
+    const result = await conn.query('DELETE FROM productos WHERE id = ?', id)
     return result
 }
 
-async function getFichaById(id){
+async function getProductoById(id){
     const conn = await getConnection()
-    const result = await conn.query('SELECT * FROM fichascliente WHERE id = ?', id)
+    const result = await conn.query('SELECT * FROM productos WHERE id = ?', id)
     return result[0]
 }
 
-async function actualizarFichaCliente(id, ficha){
+async function actualizarProducto(id, producto){
     const conn = await getConnection()
-    const result = await conn.query('UPDATE fichascliente SET ? WHERE id = ?',[ficha, id])
+    const result = await conn.query('UPDATE productos SET ? WHERE id = ?',[producto, id])
     return result[0]
 }
 
-async function getFichasCliente() {
+async function getProductos() {
     const conn = await getConnection()
-    const fichas = await conn.query('SELECT * FROM fichascliente ORDER BY id DESC')
-    return fichas
-}
-
-async function getDiasFichas(){
-    const conn = await getConnection()
-    const fechas = await conn.query('SELECT fecha FROM fichascliente ORDER BY fecha ASC')
-    return fechas
-}
-
-async function getFichasPorFecha(fecha){
-    const conn = await getConnection()
-    const result = await conn.query('SELECT * FROM fichascliente WHERE fecha = ?', fecha)
-    return result.length
-
+    const productos = await conn.query('SELECT * FROM productos ORDER BY id DESC')
+    return productos
 }
 
 let window
@@ -82,11 +68,9 @@ function createWindow(){
 
 module.exports = {
     createWindow,
-    nuevaFichaCliente,
-    getFichasCliente,
-    borrarFichaCliente,
-    getFichaById,
-    actualizarFichaCliente,
-    getDiasFichas,
-    getFichasPorFecha
+    nuevoProducto,
+    getProductos,
+    borrarProducto,
+    getProductoById,
+    actualizarProducto,
 }

@@ -11,20 +11,15 @@
 </head>
 <body>    
     <main class="container-fluid">
-        <div class="row">
-            <div class="divBotonNuevoCliente">
-                <button onclick="abrirModalAgendar()" class="btn btn-success botonNuevoCliente">NUEVO<br>CLIENTE</button>
-            </div>
-                        
-            <div class="">
-                <div class="divBotonLimpiarFiltro">
-                    <button onclick="window.location.reload()"type="button" class="btn btn-secondary botonLimpiarFiltro">LIMPIAR FILTRO<br> DE FECHAS</button>
-                </div>
-                <div id="divFechasFichas"></div>
-                <div style="position: relative;" id="fichas"></div>
-            </div>
-
+        <div class="d-flex w-100 justify-content-center align-items-center">
+            <h1 class="titulo">Calculadora de precios</h1>
         </div>
+        <nav>
+            <div class="d-flex justify-content-center align-items-center gap-5">
+                <button class="btn botonNav">Productos</button>
+                <button class="btn botonNav">Materias Primas</button>
+            </div>
+        </nav>
     </main>
 </body>
 <script src="./app.js"></script>
