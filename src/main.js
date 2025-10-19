@@ -344,6 +344,10 @@ async function getProductoById(id) {
 
 async function actualizarProducto(id, producto) {
     const conn = await getConnection();
+    
+    // Obtener datos anteriores para auditoría
+    const datosAnteriores = await getProductoById(id);
+    
     const { nombre, precio, precio_delivery, descripcion, cantidad_disponible } = producto;
     
     await conn.query(
@@ -352,6 +356,9 @@ async function actualizarProducto(id, producto) {
          WHERE id = ?`,
         [nombre, precio, precio_delivery, descripcion, cantidad_disponible, id]
     );
+
+    // Auditoría
+    await auditarEdicionProducto(id, datosAnteriores, producto);
 }
 
 async function actualizarStockProducto(id, datos) {
@@ -608,6 +615,9 @@ async function agregarProductoAOrden(idOrden, idProducto, cantidad) {
         `UPDATE stock_productos SET cantidad_disponible = cantidad_disponible - ? WHERE id = ?`,
         [cantidad, idProducto]
     );
+
+    // Auditoría
+    await auditarVentaProducto(idOrden, [{ id: idProducto, cantidad: cantidad }]);
 }
 
 // Función actualizada para crear una venta con soporte para descuentos
@@ -720,12 +730,14 @@ async function agregarComboAOrden(idOrden, idCombo, cantidadCombo) {
     for (const detalle of detalles) {
         const cantidadTotal = detalle.cantidad * cantidadCombo;
 
-        // Actualizar el stock de los productos que componen el combo
         await conn.query(
             `UPDATE stock_productos SET cantidad_disponible = cantidad_disponible - ? WHERE id = ?`,
             [cantidadTotal, detalle.id_producto]
         );
     }
+
+    // Auditoría
+    await auditarVentaCombo(idOrden, [{ id: idCombo, cantidad: cantidadCombo }]);
 }
 
 
@@ -886,6 +898,13 @@ async function actualizarCombo(idCombo, combo, detalles) {
     try {
         await conn.beginTransaction();
 
+        // Obtener datos anteriores para auditoría
+        const datosAnteriores = await getComboById(idCombo);
+        const [detallesAnteriores] = await conn.query(
+            'SELECT id_producto, cantidad FROM combo_detalle WHERE id_combo = ?',
+            [idCombo]
+        );
+
         // Actualizar combo
         await conn.query(
             'UPDATE combo_productos SET nombre = ?, descripcion = ?, precio = ?, precio_delivery = ? WHERE id = ?',
@@ -904,6 +923,15 @@ async function actualizarCombo(idCombo, combo, detalles) {
         }
 
         await conn.commit();
+
+        // Auditoría
+        await auditarEdicionCombo(
+            idCombo, 
+            datosAnteriores, 
+            combo, 
+            detallesAnteriores, 
+            detalles
+        );
 
         new Notification({
             title: 'Pombero Stock',
@@ -1130,6 +1158,166 @@ function createWindow() {
     window.maximize();
     window.show();
 }
+
+
+// =======================================================
+// SISTEMA DE AUDITORÍA DE STOCK
+// =======================================================
+
+// Función principal para registrar cambios en el stock
+async function registrarCambioStock(descripcion, tipoOperacion, idOperacion = null) {
+    const conn = await getConnection();
+    try {
+        await conn.query(
+            'INSERT INTO auditoria_stock (descripcion_cambio, tipo_operacion, id_operacion) VALUES (?, ?, ?)',
+            [descripcion, tipoOperacion, idOperacion]
+        );
+        console.log('Cambio de stock registrado:', descripcion);
+    } catch (error) {
+        console.error('Error al registrar cambio de stock:', error);
+    }
+}
+
+// Función para auditoría al vender productos individuales
+async function auditarVentaProducto(idOrden, productosVendidos) {
+    try {
+        const descripciones = [];
+        
+        for (const producto of productosVendidos) {
+            const productoInfo = await getProductoById(producto.id);
+            descripciones.push(
+                `Producto ID ${producto.id} (${productoInfo.nombre}): Stock reducido en ${producto.cantidad} unidades`
+            );
+        }
+        
+        const descripcionCompleta = `VENTA - Orden #${idOrden}. Cambios: ${descripciones.join('; ')}`;
+        
+        await registrarCambioStock(
+            descripcionCompleta,
+            'VENTA_PRODUCTO',
+            idOrden
+        );
+    } catch (error) {
+        console.error('Error en auditoría de venta producto:', error);
+    }
+}
+
+// Función para auditoría al vender combos
+async function auditarVentaCombo(idOrden, combosVendidos) {
+    try {
+        const descripciones = [];
+        
+        for (const combo of combosVendidos) {
+            const comboInfo = await getComboById(combo.id);
+            
+            for (const detalle of comboInfo.detalles) {
+                const productoInfo = await getProductoById(detalle.id_producto);
+                const cantidadTotal = detalle.cantidad * combo.cantidad;
+                descripciones.push(
+                    `Producto ID ${detalle.id_producto} (${productoInfo.nombre}): Stock reducido en ${cantidadTotal} unidades por combo "${comboInfo.nombre}"`
+                );
+            }
+        }
+        
+        const descripcionCompleta = `VENTA COMBO - Orden #${idOrden}. Cambios: ${descripciones.join('; ')}`;
+        
+        await registrarCambioStock(
+            descripcionCompleta,
+            'VENTA_COMBO',
+            idOrden
+        );
+    } catch (error) {
+        console.error('Error en auditoría de venta combo:', error);
+    }
+}
+
+// Función para auditoría al editar producto
+async function auditarEdicionProducto(idProducto, datosAnteriores, datosNuevos) {
+    try {
+        const cambios = [];
+        
+        if (datosAnteriores.cantidad_disponible !== datosNuevos.cantidad_disponible) {
+            cambios.push(`Stock cambiado de ${datosAnteriores.cantidad_disponible} a ${datosNuevos.cantidad_disponible}`);
+        }
+        if (datosAnteriores.precio !== datosNuevos.precio) {
+            cambios.push(`Precio local cambiado de ${datosAnteriores.precio} a ${datosNuevos.precio}`);
+        }
+        if (datosAnteriores.precio_delivery !== datosNuevos.precio_delivery) {
+            cambios.push(`Precio delivery cambiado de ${datosAnteriores.precio_delivery} a ${datosNuevos.precio_delivery}`);
+        }
+        if (datosAnteriores.nombre !== datosNuevos.nombre) {
+            cambios.push(`Nombre cambiado de "${datosAnteriores.nombre}" a "${datosNuevos.nombre}"`);
+        }
+        
+        if (cambios.length > 0) {
+            const descripcion = `EDICIÓN PRODUCTO - Producto ID ${idProducto}. Cambios: ${cambios.join('; ')}`;
+            
+            await registrarCambioStock(
+                descripcion,
+                'EDICION_PRODUCTO',
+                idProducto
+            );
+        }
+    } catch (error) {
+        console.error('Error en auditoría de edición producto:', error);
+    }
+}
+
+// Función para auditoría al editar combo
+async function auditarEdicionCombo(idCombo, datosAnteriores, datosNuevos, detallesAnteriores, detallesNuevos) {
+    try {
+        const cambios = [];
+        
+        // Cambios en datos básicos del combo
+        if (datosAnteriores.nombre !== datosNuevos.nombre) {
+            cambios.push(`Nombre cambiado de "${datosAnteriores.nombre}" a "${datosNuevos.nombre}"`);
+        }
+        if (datosAnteriores.precio !== datosNuevos.precio) {
+            cambios.push(`Precio cambiado de ${datosAnteriores.precio} a ${datosNuevos.precio}`);
+        }
+        if (datosAnteriores.precio_delivery !== datosNuevos.precio_delivery) {
+            cambios.push(`Precio delivery cambiado de ${datosAnteriores.precio_delivery} a ${datosNuevos.precio_delivery}`);
+        }
+        
+        // Cambios en productos del combo
+        const productosEliminados = detallesAnteriores.filter(a => 
+            !detallesNuevos.find(n => n.id_producto === a.id_producto)
+        );
+        const productosAgregados = detallesNuevos.filter(n => 
+            !detallesAnteriores.find(a => a.id_producto === n.id_producto)
+        );
+        const productosModificados = detallesNuevos.filter(n => {
+            const anterior = detallesAnteriores.find(a => a.id_producto === n.id_producto);
+            return anterior && anterior.cantidad !== n.cantidad;
+        });
+        
+        if (productosEliminados.length > 0) {
+            cambios.push(`Productos eliminados del combo: ${productosEliminados.map(p => `ID ${p.id_producto}`).join(', ')}`);
+        }
+        if (productosAgregados.length > 0) {
+            cambios.push(`Productos agregados al combo: ${productosAgregados.map(p => `ID ${p.id_producto} (cant: ${p.cantidad})`).join(', ')}`);
+        }
+        if (productosModificados.length > 0) {
+            cambios.push(`Cantidades modificadas: ${productosModificados.map(p => {
+                const anterior = detallesAnteriores.find(a => a.id_producto === p.id_producto);
+                return `Producto ID ${p.id_producto}: ${anterior.cantidad} → ${p.cantidad}`;
+            }).join(', ')}`);
+        }
+        
+        if (cambios.length > 0) {
+            const descripcion = `EDICIÓN COMBO - Combo ID ${idCombo}. Cambios: ${cambios.join('; ')}`;
+            
+            await registrarCambioStock(
+                descripcion,
+                'EDICION_COMBO',
+                idCombo
+            );
+        }
+    } catch (error) {
+        console.error('Error en auditoría de edición combo:', error);
+    }
+}
+
 
 
 // Función para imprimir logo
