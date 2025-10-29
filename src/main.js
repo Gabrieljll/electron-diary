@@ -741,24 +741,36 @@ async function agregarComboAOrden(idOrden, idCombo, cantidadCombo) {
 }
 
 
+// =======================================================
+// CONTROL DE ESTADO DE VENTA
+// =======================================================
+let ventaEnProceso = false;
 // Registrar una nueva venta
 async function registrarVenta({ productos, cliente, telefono, direccion, costoEnvio, metodoPago, total, fecha, descuento }) {
-    try {
-        const idOrden = await crearOrden();
+    if (ventaEnProceso) {
+        console.warn("⚠️ Ya hay una venta en proceso. Espere antes de intentar otra.");
+        new Notification({
+            title: 'Pombero Stock',
+            body: 'Ya hay una venta en proceso. Espere un momento antes de continuar.'
+        }).show();
+        return;
+    }
 
-        
-        let totalFinal = total;
+    const conn = await getConnection();
+    ventaEnProceso = true;
+
+    try {
+        await conn.beginTransaction();
+
+        const idOrden = await crearOrden();
 
         for (const item of productos) {
             if (item.tipo === 'producto') {
-                // Si es un producto, agregarlo directamente a la orden
                 await agregarProductoAOrden(idOrden, item.id, item.cantidad);
             } else if (item.tipo === 'combo') {
-                // Si es un combo, manejar sus productos y agregarlos a la orden
                 await agregarComboAOrden(idOrden, item.id, item.cantidad);
             }
         }
-
 
         await crearVentaProducto({
             idOrden,
@@ -767,12 +779,14 @@ async function registrarVenta({ productos, cliente, telefono, direccion, costoEn
             direccion,
             costoEnvio,
             metodoPago,
-            total: totalFinal,
+            total,
             fecha,
             id_descuento: descuento?.id || null
         });
 
         await actualizarComprasCliente(cliente, telefono);
+
+        await conn.commit();
 
         new Notification({
             title: 'Pombero Stock',
@@ -780,9 +794,17 @@ async function registrarVenta({ productos, cliente, telefono, direccion, costoEn
         }).show();
 
     } catch (error) {
-        console.error("Error al registrar la venta:", error);
+        await conn.rollback();
+        console.error("❌ Error al registrar la venta:", error);
+        new Notification({
+            title: 'Pombero Stock',
+            body: 'Ocurrió un error al registrar la venta. No se realizaron cambios.'
+        }).show();
+    } finally {
+        ventaEnProceso = false; // 🔓 Liberar bloqueo siempre
     }
 }
+
 
 
 async function eliminarVenta(idVenta) {

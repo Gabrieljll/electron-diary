@@ -19,6 +19,7 @@ let recargosActuales = { credito: 0, debito: 0 };
 let descuentosDisponibles = [];
 let descuentoSeleccionado = null
 let ultimoTotalCalculado = 0;
+let ventaEnProceso = false;
  
 
 
@@ -883,12 +884,27 @@ async function eliminarCombo(id){
 // =======================================================
 // Función principal refactorizada
 async function registrarNuevaVenta() {
+    // Evitar ejecuciones múltiples
+    if (ventaEnProceso) {
+        Swal.fire('Espere', 'Ya hay una venta en proceso, espere...', 'warning');
+        return;
+    }
+
+    // Deshabilitar el botón
+    ventaEnProceso = true;
+    const btnGuardar = document.querySelector('.btn-guardar');
+    const btnOriginalText = btnGuardar.textContent;
+    btnGuardar.disabled = true;
+    btnGuardar.textContent = 'Procesando...';
+    btnGuardar.style.opacity = '0.6';
+    btnGuardar.style.cursor = 'not-allowed';
+
     try {
-        // Validaciones básicas
+        // ===== VALIDACIONES BÁSICAS =====
         const cliente = document.getElementById('nombreCliente').value;
         const direccion = document.getElementById('direccion').value;
         const costoEnvio = parseFloat(document.getElementById('costoEnvio').value) || 0;
-        
+
         if (!cliente || productosSeleccionados.length === 0) {
             throw new Error('Por favor, completa todos los campos y selecciona al menos un producto o combo.');
         }
@@ -899,28 +915,25 @@ async function registrarNuevaVenta() {
             throw new Error('Por favor ingresa un costo de envío válido.');
         }
 
-        // Preparar datos
+        // ===== VALIDACIÓN DE STOCK FINAL (REAL) =====
         const items = productosSeleccionados.map(item => ({
             id: item.id,
             tipo: item.tipo,
             cantidad: item.cantidad
         }));
 
-        await validarStock(items);
+        // Aquí usamos la validación profunda que consulta la BD
+        await validarStockVenta(items);
 
+        // ===== CÁLCULOS =====
         const fechaFinal = obtenerFechaFinal(document.getElementById('fechaVenta').value);
-        const totalBase = parseFloat(document.getElementById('totalConEnvio').textContent.replace('$', '')) || 0;
-        const metodoPago = document.getElementById('metodoPago').value;
-        
-       // Calcular totales - Obtener todos los valores necesarios
         const calculos = await calcularTotales();
-        
-        // Validar que los cálculos sean correctos
+
         if (typeof calculos.totalFinal !== 'number') {
             throw new Error('Error en el cálculo del total final');
         }
 
-        // Registrar venta
+        // ===== REGISTRAR LA VENTA =====
         await main.registrarVenta({
             productos: productosSeleccionados.map(item => ({
                 id: item.id,
@@ -933,11 +946,11 @@ async function registrarNuevaVenta() {
             costoEnvio: parseFloat(document.getElementById('costoEnvio').value) || 0,
             metodoPago: document.getElementById('metodoPago').value,
             total: calculos.totalFinal,
-            fecha: obtenerFechaFinal(document.getElementById('fechaVenta').value),
+            fecha: fechaFinal,
             descuento: descuentoSeleccionado
         });
 
-        // Mostrar mensaje de éxito
+        // ===== ÉXITO =====
         Swal.fire({
             title: 'Venta registrada',
             html: generarMensajeExito({
@@ -950,14 +963,22 @@ async function registrarNuevaVenta() {
             icon: 'success'
         });
 
-        // Limpiar y actualizar
+        // ===== ACTUALIZAR UI =====
         limpiarFormularioVenta();
         await actualizarUI();
         await actualizarProductos();
         await cargarVentasPorFecha(document.getElementById('fechaVenta').value);
+
     } catch (error) {
         console.error('Error al registrar la venta:', error);
         Swal.fire('Error', error.message, 'error');
+    } finally {
+        // ===== REACTIVAR BOTÓN =====
+        ventaEnProceso = false;
+        btnGuardar.disabled = false;
+        btnGuardar.textContent = btnOriginalText;
+        btnGuardar.style.opacity = '1';
+        btnGuardar.style.cursor = 'pointer';
     }
 }
 
@@ -1218,6 +1239,30 @@ async function mostrarVista(vista) {
         divCombos.style.display = 'none';
     }
 }
+
+
+
+// ========== NUEVA FUNCIÓN - NO MODIFICAR LA EXISTENTE ==========
+async function validarStockVenta(items) {
+    for (const item of items) {
+        if (item.tipo === 'producto') {
+            const producto = await main.getProductoById(item.id);
+            if (producto.cantidad_disponible < item.cantidad) {
+                throw new Error(`No hay suficiente stock para el producto ${producto.nombre}. Solo hay ${producto.cantidad_disponible} unidades disponibles.`);
+            }
+        } else if (item.tipo === 'combo') {
+            const combo = await main.getComboById(item.id);
+            for (const detalle of combo.detalles) {
+                const producto = await main.getProductoById(detalle.id_producto);
+                const stockNecesario = detalle.cantidad * item.cantidad;
+                if (producto.cantidad_disponible < stockNecesario) {
+                    throw new Error(`No hay suficiente stock para el producto ${producto.nombre} en el combo ${combo.nombre}. Solo hay ${producto.cantidad_disponible} unidades disponibles.`);
+                }
+            }
+        }
+    }
+}
+// ========== FIN NUEVA FUNCIÓN ==========
 
 
 // =======================================================
@@ -1523,7 +1568,7 @@ function actualizarPrecioSeleccionado(idProducto, precioSeleccionado) {
 }
 
 
-//document.getElementById('inputProducto').addEventListener('change', validarStock);
+document.getElementById('inputProducto').addEventListener('change', validarStock);
 document.getElementById('cantidadProducto').addEventListener('input', validarStock);
 
 cargarProductos();
